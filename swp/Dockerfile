@@ -1,28 +1,22 @@
 # ==========================================
 # Stage 1: Build the application
 # ==========================================
-FROM eclipse-temurin:17-jdk-alpine AS builder
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy the maven wrapper and pom.xml
-COPY .mvn/ .mvn
-COPY mvnw pom.xml ./
-
-# Convert CRLF to LF in case the project was cloned on Windows
-RUN sed -i 's/\r$//' mvnw
-# Make the wrapper executable
-RUN chmod +x mvnw
+# Copy the pom.xml
+COPY pom.xml ./
 
 # Download dependencies (this layer will be cached unless pom.xml changes)
-RUN ./mvnw dependency:go-offline
+RUN mvn dependency:go-offline
 
 # Copy the actual source code
 COPY src ./src
 
 # Build the application, skipping tests to speed up the process
-RUN ./mvnw package -DskipTests
+RUN mvn package -DskipTests
 
 # ==========================================
 # Stage 2: Create the final lightweight image
