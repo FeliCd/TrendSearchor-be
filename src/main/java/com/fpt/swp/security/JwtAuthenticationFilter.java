@@ -1,5 +1,6 @@
 package com.fpt.swp.security;
 
+import com.fpt.swp.repository.InvalidatedTokenRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,10 +20,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService customUserDetailsService;
+    private final InvalidatedTokenRepository invalidatedTokenRepository;
 
-    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, CustomUserDetailsService customUserDetailsService) {
+    public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
+                                   CustomUserDetailsService customUserDetailsService,
+                                   InvalidatedTokenRepository invalidatedTokenRepository) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.customUserDetailsService = customUserDetailsService;
+        this.invalidatedTokenRepository = invalidatedTokenRepository;
     }
 
     @Override
@@ -33,8 +38,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // Get JWT token from HTTP request
         String token = getTokenFromRequest(request);
 
-        // Validate token
+        // Validate token chữ ký & hạn sử dụng
         if (StringUtils.hasText(token) && jwtTokenProvider.validateToken(token)) {
+
+            // FR-01.3: Từ chối token đã bị invalidate (blacklist)
+            String jti = jwtTokenProvider.getJti(token);
+            if (invalidatedTokenRepository.existsByJti(jti)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             // Get username from token
             String username = jwtTokenProvider.getUsername(token);
 

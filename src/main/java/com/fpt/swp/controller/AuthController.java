@@ -3,10 +3,14 @@ package com.fpt.swp.controller;
 import com.fpt.swp.dto.JwtAuthResponse;
 import com.fpt.swp.dto.LoginRequest;
 import com.fpt.swp.dto.RegisterRequest;
+import com.fpt.swp.model.InvalidatedToken;
 import com.fpt.swp.model.Role;
 import com.fpt.swp.model.User;
+import com.fpt.swp.repository.InvalidatedTokenRepository;
 import com.fpt.swp.repository.UserRepository;
 import com.fpt.swp.security.JwtTokenProvider;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -14,11 +18,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -28,17 +29,23 @@ public class AuthController {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final InvalidatedTokenRepository invalidatedTokenRepository;
 
-    public AuthController(AuthenticationManager authenticationManager, 
-                          JwtTokenProvider jwtTokenProvider, 
-                          UserRepository userRepository, 
-                          PasswordEncoder passwordEncoder) {
+    public AuthController(AuthenticationManager authenticationManager,
+                          JwtTokenProvider jwtTokenProvider,
+                          UserRepository userRepository,
+                          PasswordEncoder passwordEncoder,
+                          InvalidatedTokenRepository invalidatedTokenRepository) {
         this.authenticationManager = authenticationManager;
         this.jwtTokenProvider = jwtTokenProvider;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.invalidatedTokenRepository = invalidatedTokenRepository;
     }
 
+    // ─────────────────────────────────────────────
+    // FR-01.2 – Đăng nhập
+    // ─────────────────────────────────────────────
     @PostMapping("/login")
     public ResponseEntity<JwtAuthResponse> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
 
@@ -56,6 +63,9 @@ public class AuthController {
         return ResponseEntity.ok(new JwtAuthResponse(token));
     }
 
+    // ─────────────────────────────────────────────
+    // FR-01.1 – Đăng ký tài khoản
+    // ─────────────────────────────────────────────
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
         // Kiểm tra xem username đã tồn tại chưa
@@ -83,5 +93,45 @@ public class AuthController {
         userRepository.save(user);
 
         return new ResponseEntity<>("User registered successfully", HttpStatus.CREATED);
+    }
+
+    // ─────────────────────────────────────────────
+    // FR-01.3 – Đăng xuất
+    // Hủy session hiện tại, invalidate access token bằng cách đưa vào blacklist.
+    // ─────────────────────────────────────────────
+    @PostMapping("/logout")
+    public ResponseEntity<?> logoutUser(HttpServletRequest request) {
+        String token = extractToken(request);
+
+        if (token == null || !jwtTokenProvider.validateToken(token)) {
+            return ResponseEntity.badRequest().body("Invalid or missing token.");
+        }
+
+        String jti = jwtTokenProvider.getJti(token);
+
+        // Token chưa bị invalidate → thêm vào blacklist
+        if (!invalidatedTokenRepository.existsByJti(jti)) {
+            InvalidatedToken invalidatedToken = InvalidatedToken.builder()
+                    .jti(jti)
+                    .expiresAt(jwtTokenProvider.getExpiration(token))
+                    .build();
+            invalidatedTokenRepository.save(invalidatedToken);
+        }
+
+        // Xóa SecurityContext phía server
+        SecurityContextHolder.clearContext();
+
+        return ResponseEntity.ok("Logged out successfully.");
+    }
+
+    // ─────────────────────────────────────────────
+    // Helper
+    // ─────────────────────────────────────────────
+    private String extractToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
     }
 }

@@ -8,12 +8,12 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class OpenApiConfig {
 
-    @Bean
-    public OpenAPI customOpenAPI() {
-        return new OpenAPI()
-                .info(new Info()
-                        .title("Journal Trend Tracker API")
-                        .version("1.0")
-                        .description("Hệ thống theo dõi xu hướng báo chí khoa học"));
-    }
+        @Bean
+        public OpenAPI customOpenAPI() {
+                return new OpenAPI()
+                                .info(new Info()
+                                                .title("Journal Trend Tracker API")
+                                                .version("1.0")
+                                                .description("Hệ thống theo dõi xu hướng báo chí khoa học"));
+        }
 }
