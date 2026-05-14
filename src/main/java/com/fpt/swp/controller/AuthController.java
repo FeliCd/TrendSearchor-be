@@ -1,5 +1,6 @@
 package com.fpt.swp.controller;
 
+import com.fpt.swp.dto.ChangePasswordRequest;
 import com.fpt.swp.dto.JwtAuthResponse;
 import com.fpt.swp.dto.LoginRequest;
 import com.fpt.swp.dto.RegisterRequest;
@@ -13,6 +14,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -133,5 +135,35 @@ public class AuthController {
             return bearerToken.substring(7);
         }
         return null;
+    }
+
+    // ─────────────────────────────────────────────
+    // FR-01.5 – Đổi mật khẩu
+    // ─────────────────────────────────────────────
+    @PostMapping("/change-password")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        // Kiểm tra xem mật khẩu mới và xác nhận mật khẩu có khớp nhau không
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            return ResponseEntity.badRequest().body("New password and confirm password do not match.");
+        }
+
+        // Lấy thông tin user hiện tại từ SecurityContext
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = authentication.getName();
+
+        User user = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Kiểm tra mật khẩu cũ có đúng không
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            return ResponseEntity.badRequest().body("Incorrect old password.");
+        }
+
+        // Mã hóa và lưu mật khẩu mới
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        return ResponseEntity.ok("Password changed successfully.");
     }
 }
