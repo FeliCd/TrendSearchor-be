@@ -1,4 +1,4 @@
-package com.fpt.swp.journaltrendtracker.model;
+package com.fpt.swp.model;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

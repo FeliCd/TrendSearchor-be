@@ -1,4 +1,4 @@
-package com.fpt.swp.journaltrendtracker.exception;
+package com.fpt.swp.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

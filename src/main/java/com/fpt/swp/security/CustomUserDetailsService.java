@@ -1,7 +1,7 @@
-package com.fpt.swp.journaltrendtracker.security;
+package com.fpt.swp.security;
 
-import com.fpt.swp.journaltrendtracker.model.User;
-import com.fpt.swp.journaltrendtracker.repository.UserRepository;
+import com.fpt.swp.model.User;
+import com.fpt.swp.repository.UserRepository;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;

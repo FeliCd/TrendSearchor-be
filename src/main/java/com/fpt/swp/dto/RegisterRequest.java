@@ -1,13 +1,13 @@
-package com.fpt.swp.journaltrendtracker.dto;
+package com.fpt.swp.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import com.fpt.swp.journaltrendtracker.model.Gender;
-import com.fpt.swp.journaltrendtracker.model.Role;
-import com.fpt.swp.journaltrendtracker.validation.ValidDob;
+import com.fpt.swp.model.Gender;
+import com.fpt.swp.model.Role;
+import com.fpt.swp.validation.ValidDob;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

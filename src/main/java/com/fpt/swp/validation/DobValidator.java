@@ -1,4 +1,4 @@
-package com.fpt.swp.journaltrendtracker.validation;
+package com.fpt.swp.validation;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;

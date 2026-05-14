@@ -1,9 +1,9 @@
-package com.fpt.swp.journaltrendtracker.config;
+package com.fpt.swp.config;
 
-import com.fpt.swp.journaltrendtracker.model.Gender;
-import com.fpt.swp.journaltrendtracker.model.Role;
-import com.fpt.swp.journaltrendtracker.model.User;
-import com.fpt.swp.journaltrendtracker.repository.UserRepository;
+import com.fpt.swp.model.Gender;
+import com.fpt.swp.model.Role;
+import com.fpt.swp.model.User;
+import com.fpt.swp.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,25 +17,25 @@ public class DataInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Value("${admin.username}")
+    @Value("${admin.username:admin}")
     private String adminUsername;
 
-    @Value("${admin.password}")
+    @Value("${admin.password:admin}")
     private String adminPassword;
 
-    @Value("${admin.dob}")
+    @Value("${admin.dob:2000-01-01}")
     private String adminDob;
 
-    @Value("${admin.mail}")
+    @Value("${admin.mail:admin@system.com}")
     private String adminMail;
 
-    @Value("${admin.phone}")
+    @Value("${admin.phone:0123456789}")
     private String adminPhone;
 
-    @Value("${admin.gender}")
+    @Value("${admin.gender:MALE}")
     private String adminGender;
 
-    @Value("${admin.workplace}")
+    @Value("${admin.workplace:System}")
     private String adminWorkplace;
 
     public DataInitializer(UserRepository userRepository, PasswordEncoder passwordEncoder) {

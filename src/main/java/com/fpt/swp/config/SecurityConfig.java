@@ -1,6 +1,6 @@
-package com.fpt.swp.journaltrendtracker.config;
+package com.fpt.swp.config;
 
-import com.fpt.swp.journaltrendtracker.security.JwtAuthenticationFilter;
+import com.fpt.swp.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;

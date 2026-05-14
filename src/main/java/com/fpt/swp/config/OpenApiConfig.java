@@ -1,4 +1,4 @@
-package com.fpt.swp.journaltrendtracker.config;
+package com.fpt.swp.config;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;

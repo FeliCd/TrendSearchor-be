@@ -1,6 +1,6 @@
-package com.fpt.swp.journaltrendtracker.repository;
+package com.fpt.swp.repository;
 
-import com.fpt.swp.journaltrendtracker.model.User;
+import com.fpt.swp.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

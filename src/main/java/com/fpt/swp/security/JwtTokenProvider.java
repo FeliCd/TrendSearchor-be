@@ -1,4 +1,4 @@
-package com.fpt.swp.journaltrendtracker.security;
+package com.fpt.swp.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;

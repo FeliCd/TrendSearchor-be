@@ -1,12 +1,12 @@
-package com.fpt.swp.journaltrendtracker.controller;
+package com.fpt.swp.controller;
 
-import com.fpt.swp.journaltrendtracker.dto.JwtAuthResponse;
-import com.fpt.swp.journaltrendtracker.dto.LoginRequest;
-import com.fpt.swp.journaltrendtracker.dto.RegisterRequest;
-import com.fpt.swp.journaltrendtracker.model.Role;
-import com.fpt.swp.journaltrendtracker.model.User;
-import com.fpt.swp.journaltrendtracker.repository.UserRepository;
-import com.fpt.swp.journaltrendtracker.security.JwtTokenProvider;
+import com.fpt.swp.dto.JwtAuthResponse;
+import com.fpt.swp.dto.LoginRequest;
+import com.fpt.swp.dto.RegisterRequest;
+import com.fpt.swp.model.Role;
+import com.fpt.swp.model.User;
+import com.fpt.swp.repository.UserRepository;
+import com.fpt.swp.security.JwtTokenProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -76,7 +76,6 @@ public class AuthController {
                 .mail(registerRequest.getMail())
                 .phone(registerRequest.getPhone())
                 .gender(registerRequest.getGender())
-                .academicTitle(registerRequest.getAcademicTitle())
                 .workplace(registerRequest.getWorkplace())
                 .role(registerRequest.getRole() != null ? registerRequest.getRole() : Role.USER) // Default to USER
                 .build();
