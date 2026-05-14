@@ -1,6 +1,5 @@
 package com.fpt.swp.journaltrendtracker.dto;
 
-import com.fpt.swp.journaltrendtracker.model.AcademicTitle;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -43,9 +42,6 @@ public class RegisterRequest {
 
     @NotNull(message = "Gender is required")
     private Gender gender;
-
-    @NotNull(message = "Academic Title is required")
-    private AcademicTitle academicTitle;
 
     @NotBlank(message = "Workplace is required")
     private String workplace;

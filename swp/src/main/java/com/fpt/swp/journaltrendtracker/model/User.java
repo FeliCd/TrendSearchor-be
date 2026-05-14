@@ -36,9 +36,6 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Gender gender; // giới tính
 
-    @Enumerated(EnumType.STRING)
-    private AcademicTitle academicTitle; // học vị
-
     private String workplace; // đơn vị công tác
 
     @Enumerated(EnumType.STRING)

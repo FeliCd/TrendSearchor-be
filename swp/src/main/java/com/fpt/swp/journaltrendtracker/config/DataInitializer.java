@@ -1,6 +1,5 @@
 package com.fpt.swp.journaltrendtracker.config;
 
-import com.fpt.swp.journaltrendtracker.model.AcademicTitle;
 import com.fpt.swp.journaltrendtracker.model.Gender;
 import com.fpt.swp.journaltrendtracker.model.Role;
 import com.fpt.swp.journaltrendtracker.model.User;
@@ -36,9 +35,6 @@ public class DataInitializer implements CommandLineRunner {
     @Value("${admin.gender}")
     private String adminGender;
 
-    @Value("${admin.academicTitle}")
-    private String adminAcademicTitle;
-
     @Value("${admin.workplace}")
     private String adminWorkplace;
 
@@ -61,7 +57,6 @@ public class DataInitializer implements CommandLineRunner {
                     .mail(uMail)
                     .phone(adminPhone)
                     .gender(Gender.valueOf(adminGender.toUpperCase()))
-                    .academicTitle(AcademicTitle.valueOf(adminAcademicTitle))
                     .workplace(adminWorkplace)
                     .role(Role.ADMIN)
                     .build();
