@@ -1,6 +1,7 @@
 package com.fpt.swp.controller;
 
 import com.fpt.swp.dto.ChangePasswordRequest;
+import com.fpt.swp.dto.ForgotPasswordRequest;
 import com.fpt.swp.dto.JwtAuthResponse;
 import com.fpt.swp.dto.LoginRequest;
 import com.fpt.swp.dto.RegisterRequest;
@@ -22,6 +23,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -165,5 +168,31 @@ public class AuthController {
         userRepository.save(user);
 
         return ResponseEntity.ok("Password changed successfully.");
+    }
+
+    // ─────────────────────────────────────────────
+    // FR-01.6 – Quên mật khẩu (Reset Password - API Mock)
+    // ─────────────────────────────────────────────
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        User user = userRepository.findByMail(request.getMail())
+                .orElse(null);
+
+        // Bảo mật: Không nên báo lỗi tường minh nếu email không tồn tại để tránh rò rỉ thông tin
+        if (user == null) {
+            return ResponseEntity.ok("If the email exists, a new password will be provided.");
+        }
+
+        // Tạo mật khẩu mới ngẫu nhiên (đáp ứng điều kiện: >= 9 ký tự, có Hoa, số, ký tự đặc biệt)
+        // Ví dụ: Trend@ + 6 ký tự random
+        String randomSuffix = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        String newRandomPassword = "Trend@" + randomSuffix + "1";
+
+        // Mã hóa và lưu vào DB
+        user.setPassword(passwordEncoder.encode(newRandomPassword));
+        userRepository.save(user);
+
+        // Trong thực tế sẽ gửi email. Ở đây trả thẳng về màn hình để test.
+        return ResponseEntity.ok("Password has been reset successfully. Your new password is: " + newRandomPassword);
     }
 }
