@@ -53,12 +53,10 @@ public class User {
     @Column(nullable = false)
     private UserStatus status = UserStatus.ACTIVE;
 
-    // created_at / updated_at — nullable=true để Hibernate thêm cột vào bảng đã có dữ liệu
-    // Backfill giá trị ngay bên dưới
-    @Column(nullable = true, updatable = false)
+    @Column(name = "created_at", nullable = true, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(nullable = true)
+    @Column(name = "updated_at", nullable = true)
     private LocalDateTime updatedAt;
 
     private LocalDateTime lastLogin;
