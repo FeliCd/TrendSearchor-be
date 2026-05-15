@@ -21,8 +21,8 @@ public class CorsFilter implements Filter {
     private static final String[] ALLOWED_ORIGINS = {
             "http://localhost:3000",
             "http://localhost:5173",
-            "https://trendsearchor-fe.vercel.app",
-            "https://trend-searchor-*.vercel.app"
+            "https://trend-searchor-fe.vercel.app",
+            "https://trend-searchor-fe-*.vercel.app"
     };
 
     private static final String[] ALLOWED_METHODS = {

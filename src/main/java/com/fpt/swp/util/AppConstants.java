@@ -37,7 +37,7 @@ public final class AppConstants {
     public static final String[] CORS_ALLOWED_ORIGINS = {
             "http://localhost:5173",
             "http://localhost:3000",
-            "https://trendsearchor-be-production.up.railway.app",
-            "https://trend-searchor-fe.vercel.app"
+            "https://trend-searchor-fe.vercel.app",
+            "https://trend-searchor-fe-*.vercel.app"
     };
 }
