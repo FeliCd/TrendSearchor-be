@@ -3,6 +3,8 @@ package com.fpt.swp.security;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -15,6 +17,8 @@ import java.util.UUID;
 
 @Component
 public class JwtTokenProvider {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtTokenProvider.class);
 
     @Value("${app.jwt-secret}")
     private String jwtSecret;
@@ -69,13 +73,15 @@ public class JwtTokenProvider {
             parseClaims(token);
             return true;
         } catch (ExpiredJwtException e) {
-            System.out.println("JWT token is expired: " + e.getMessage());
+            log.warn("[JWT] Token expired: {}", e.getMessage());
         } catch (MalformedJwtException e) {
-            System.out.println("JWT token is malformed: " + e.getMessage());
+            log.warn("[JWT] Token malformed: {}", e.getMessage());
         } catch (UnsupportedJwtException e) {
-            System.out.println("JWT token is unsupported: " + e.getMessage());
+            log.warn("[JWT] Token unsupported: {}", e.getMessage());
         } catch (IllegalArgumentException e) {
-            System.out.println("JWT token is invalid: " + e.getMessage());
+            log.warn("[JWT] Token invalid: {}", e.getMessage());
+        } catch (JwtException e) {
+            log.warn("[JWT] Token error: {} - {}", e.getClass().getSimpleName(), e.getMessage());
         }
         return false;
     }

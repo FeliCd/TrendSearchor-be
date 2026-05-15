@@ -14,6 +14,8 @@ import com.fpt.swp.security.LoginRateLimiter;
 import com.fpt.swp.service.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,7 +36,19 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
+@CrossOrigin(
+        origins = {
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "https://trendsearchor-fe.vercel.app",
+                "https://trend-searchor-*.vercel.app"
+        },
+        allowCredentials = "true",
+        allowedHeaders = {"Authorization", "Content-Type", "Accept", "X-Requested-With"}
+)
 public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
@@ -66,11 +80,14 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         String username = loginRequest.getUsername();
+        log.info("[AUTH] Login attempt for username: {}", username);
+        log.debug("[AUTH] Origin: {}", /* TODO: get from request if needed */ "N/A");
 
         // Rate limiting – kiểm tra lockout
         if (loginRateLimiter.isLockedOut(username)) {
             long remainingMs = loginRateLimiter.getRemainingLockoutTime(username);
             long minutes = remainingMs / 60_000;
+            log.warn("[AUTH] Login LOCKED OUT for username: {}, remaining: {} minutes", username, minutes);
             throw new RateLimitExceededException(
                     "Account temporarily locked due to too many failed attempts. Try again in " + minutes + " minutes.");
         }
@@ -96,18 +113,24 @@ public class AuthController {
             loginRateLimiter.recordSuccessfulLogin(username);
 
             String token = jwtTokenProvider.generateToken(authentication);
+            log.info("[AUTH] Login SUCCESS for username: {}", username);
 
             return ResponseEntity.ok(new JwtAuthResponse(token, UserResponse.fromUser(user)));
 
         } catch (BadCredentialsException | DisabledException | LockedException e) {
             loginRateLimiter.recordFailedAttempt(username);
             int remaining = loginRateLimiter.getRemainingAttempts(username);
+            log.warn("[AUTH] Login FAILED for username: {}, attempts remaining: {}, error: {}",
+                    username, remaining, e.getClass().getSimpleName());
             if (remaining > 0) {
                 throw new BadCredentialsException(
                         "Invalid username or password. " + remaining + " attempts remaining.");
             }
             throw new RateLimitExceededException(
                     "Too many failed attempts. Account is temporarily locked for 15 minutes.");
+        } catch (Exception e) {
+            log.error("[AUTH] Login ERROR for username: {}, exception: {}", username, e.getClass().getSimpleName(), e);
+            throw e;
         }
     }
 

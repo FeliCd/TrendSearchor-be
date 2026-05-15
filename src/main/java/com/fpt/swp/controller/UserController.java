@@ -13,6 +13,16 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/admin/users")
 @PreAuthorize("hasRole('ADMIN')")
+@CrossOrigin(
+        origins = {
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "https://trendsearchor-fe.vercel.app",
+                "https://trend-searchor-*.vercel.app"
+        },
+        allowCredentials = "true",
+        allowedHeaders = {"Authorization", "Content-Type", "Accept", "X-Requested-With"}
+)
 public class UserController {
 
     private final UserService userService;

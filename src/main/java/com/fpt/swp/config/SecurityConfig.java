@@ -62,6 +62,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler)
                 )
                 .authorizeHttpRequests(auth -> {
+                    // ⚠️ Explicitly handle OPTIONS for CORS preflight BEFORE anything else
                     auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
 
                     auth.requestMatchers(

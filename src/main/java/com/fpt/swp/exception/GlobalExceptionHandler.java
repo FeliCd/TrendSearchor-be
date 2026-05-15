@@ -1,5 +1,7 @@
 package com.fpt.swp.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -14,6 +16,8 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     // ─── Validation ──────────────────────────────────────────────────────────────
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -73,6 +77,7 @@ public class GlobalExceptionHandler {
     // ─── Catch-all ──────────────────────────────────────────────────────────────
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
+        log.error("[EXCEPTION] Unhandled exception: {} - {}", ex.getClass().getSimpleName(), ex.getMessage(), ex);
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred");
     }
