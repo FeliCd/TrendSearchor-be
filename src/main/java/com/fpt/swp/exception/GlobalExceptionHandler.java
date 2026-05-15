@@ -7,9 +7,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,6 +32,16 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
         return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+        log.warn("[400] Malformed request body: {}", ex.getMessage());
+        Map<String, Object> error = new HashMap<>();
+        error.put("status", 400);
+        error.put("error", "Bad Request");
+        error.put("message", "Malformed JSON request body");
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     // ─── Authentication / Authorization ──────────────────────────────────────────
@@ -75,11 +87,22 @@ public class GlobalExceptionHandler {
     }
 
     // ─── Catch-all ──────────────────────────────────────────────────────────────
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFound(NoResourceFoundException ex) {
+        log.warn("[404] Resource not found: {}", ex.getResourcePath());
+        Map<String, Object> error = new HashMap<>();
+        error.put("status", 404);
+        error.put("error", "Not Found");
+        error.put("message", "The requested resource was not found");
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
+    public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
         log.error("[EXCEPTION] Unhandled exception: {} - {}", ex.getClass().getSimpleName(), ex.getMessage(), ex);
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR,
-                "An unexpected error occurred");
+        Map<String, Object> error = new HashMap<>();
+        error.put("message", "An unexpected error occurred");
+        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     // ─── Helper ─────────────────────────────────────────────────────────────────
