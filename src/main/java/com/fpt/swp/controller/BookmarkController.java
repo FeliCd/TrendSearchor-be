@@ -1,5 +1,6 @@
 package com.fpt.swp.controller;
 
+import com.fpt.swp.dto.BookmarkResponse;
 import com.fpt.swp.model.Bookmark;
 import com.fpt.swp.service.BookmarkService;
 import com.fpt.swp.util.AuthUtils;
@@ -21,7 +22,7 @@ public class BookmarkController {
     private final AuthUtils authUtils;
 
     @GetMapping
-    public ResponseEntity<Page<Bookmark>> getBookmarks(
+    public ResponseEntity<?> getBookmarks(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String type,
@@ -30,7 +31,16 @@ public class BookmarkController {
         Long userId = authUtils.extractUserId(userDetails);
         if (userId == null) return ResponseEntity.status(401).build();
 
-        return ResponseEntity.ok(bookmarkService.getUserBookmarks(userId, type, page, size));
+        Page<Bookmark> bookmarks = bookmarkService.getUserBookmarks(userId, type, page, size);
+        var content = bookmarks.getContent().stream()
+                .map(BookmarkResponse::fromBookmark)
+                .toList();
+
+        return ResponseEntity.ok(new org.springframework.data.domain.PageImpl<>(
+                new java.util.ArrayList<>(content),
+                bookmarks.getPageable(),
+                bookmarks.getTotalElements()
+        ));
     }
 
     @PostMapping
@@ -44,9 +54,9 @@ public class BookmarkController {
         String bookmarkType = (String) request.get("type");
         try {
             if ("PAPER".equalsIgnoreCase(bookmarkType)) {
-                Long paperId = ((Number) request.get("paperId")).longValue();
-                Bookmark bookmark = bookmarkService.addPaperBookmark(userId, paperId);
-                return ResponseEntity.ok(bookmark);
+                String externalId = (String) request.get("externalId");
+                Bookmark bookmark = bookmarkService.addPaperBookmark(userId, externalId);
+                return ResponseEntity.ok(BookmarkResponse.fromBookmark(bookmark));
             } else if ("KEYWORD".equalsIgnoreCase(bookmarkType)) {
                 Long keywordId = ((Number) request.get("keywordId")).longValue();
                 Bookmark bookmark = bookmarkService.addKeywordBookmark(userId, keywordId);
@@ -58,15 +68,15 @@ public class BookmarkController {
         }
     }
 
-    @DeleteMapping("/paper/{paperId}")
+    @DeleteMapping("/paper/{externalId}")
     public ResponseEntity<Void> removePaperBookmark(
-            @PathVariable Long paperId,
+            @PathVariable String externalId,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         Long userId = authUtils.extractUserId(userDetails);
         if (userId == null) return ResponseEntity.status(401).build();
 
-        bookmarkService.removePaperBookmark(userId, paperId);
+        bookmarkService.removePaperBookmark(userId, externalId);
         return ResponseEntity.ok().build();
     }
 
@@ -104,14 +114,25 @@ public class BookmarkController {
         return ResponseEntity.ok(bookmarkService.getBookmarkStats(userId));
     }
 
-    @GetMapping("/check/paper/{paperId}")
+    @GetMapping("/check/paper/{externalId}")
     public ResponseEntity<Map<String, Boolean>> checkPaperBookmark(
-            @PathVariable Long paperId,
+            @PathVariable String externalId,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         Long userId = authUtils.extractUserId(userDetails);
         if (userId == null) return ResponseEntity.status(401).build();
 
-        return ResponseEntity.ok(Map.of("isBookmarked", bookmarkService.isPaperBookmarked(userId, paperId)));
+        return ResponseEntity.ok(Map.of("isBookmarked", bookmarkService.isPaperBookmarkedByExternalId(userId, externalId)));
+    }
+
+    @GetMapping("/check/keyword/{keywordId}")
+    public ResponseEntity<Map<String, Boolean>> checkKeywordBookmark(
+            @PathVariable Long keywordId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        Long userId = authUtils.extractUserId(userDetails);
+        if (userId == null) return ResponseEntity.status(401).build();
+
+        return ResponseEntity.ok(Map.of("isBookmarked", bookmarkService.isKeywordBookmarked(userId, keywordId)));
     }
 }

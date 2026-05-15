@@ -121,7 +121,7 @@ public class OpenAlexService {
         }
 
         String id = openAlexId.startsWith("https://openalex.org/")
-                ? openAlexId : "https://openalex.org/" + openAlexId;
+                ? openAlexId : BASE_URL + "/works/" + openAlexId;
         String url = id + "?mailto=" + mailto;
 
         log.debug("OpenAlex fetching paper: id={}", openAlexId);
