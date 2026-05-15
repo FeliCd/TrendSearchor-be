@@ -3,6 +3,7 @@ package com.fpt.swp.config;
 import com.fpt.swp.model.Gender;
 import com.fpt.swp.model.Role;
 import com.fpt.swp.model.User;
+import com.fpt.swp.model.UserStatus;
 import com.fpt.swp.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
@@ -59,6 +60,7 @@ public class DataInitializer implements CommandLineRunner {
                     .gender(Gender.valueOf(adminGender.toUpperCase()))
                     .workplace(adminWorkplace)
                     .role(Role.ADMIN)
+                    .status(UserStatus.ACTIVE)
                     .build();
             userRepository.save(admin);
             System.out.println("Default Admin user created successfully.");

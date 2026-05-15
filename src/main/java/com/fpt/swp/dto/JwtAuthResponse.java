@@ -1,19 +1,25 @@
 package com.fpt.swp.dto;
 
 import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Builder;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class JwtAuthResponse {
     private String accessToken;
     private String tokenType = "Bearer";
+    private UserResponse user;
 
     public JwtAuthResponse(String accessToken) {
         this.accessToken = accessToken;
+    }
+
+    public JwtAuthResponse(String accessToken, UserResponse user) {
+        this.accessToken = accessToken;
+        this.user = user;
     }
 }

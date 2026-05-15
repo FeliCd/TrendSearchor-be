@@ -1,6 +1,7 @@
 package com.fpt.swp.security;
 
 import com.fpt.swp.model.User;
+import com.fpt.swp.model.UserStatus;
 import com.fpt.swp.repository.UserRepository;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -22,7 +23,15 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+
+        // Không cho phép user không active đăng nhập
+        if (user.getStatus() == UserStatus.INACTIVE) {
+            throw new UsernameNotFoundException("Account is inactive: " + username);
+        }
+        if (user.getStatus() == UserStatus.SUSPENDED) {
+            throw new UsernameNotFoundException("Account is suspended: " + username);
+        }
 
         return new org.springframework.security.core.userdetails.User(
                 user.getUsername(),

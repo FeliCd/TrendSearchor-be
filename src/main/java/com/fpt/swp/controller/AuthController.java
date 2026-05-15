@@ -1,22 +1,26 @@
 package com.fpt.swp.controller;
 
-import com.fpt.swp.dto.ChangePasswordRequest;
-import com.fpt.swp.dto.ForgotPasswordRequest;
-import com.fpt.swp.dto.JwtAuthResponse;
-import com.fpt.swp.dto.LoginRequest;
-import com.fpt.swp.dto.RegisterRequest;
+import com.fpt.swp.dto.*;
+import com.fpt.swp.exception.AccountDisabledException;
+import com.fpt.swp.exception.RateLimitExceededException;
 import com.fpt.swp.model.InvalidatedToken;
 import com.fpt.swp.model.Role;
 import com.fpt.swp.model.User;
+import com.fpt.swp.model.UserStatus;
 import com.fpt.swp.repository.InvalidatedTokenRepository;
 import com.fpt.swp.repository.UserRepository;
 import com.fpt.swp.security.JwtTokenProvider;
+import com.fpt.swp.security.LoginRateLimiter;
+import com.fpt.swp.service.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,6 +28,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -35,86 +41,141 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final InvalidatedTokenRepository invalidatedTokenRepository;
+    private final LoginRateLimiter loginRateLimiter;
+    private final EmailService emailService;
 
     public AuthController(AuthenticationManager authenticationManager,
                           JwtTokenProvider jwtTokenProvider,
                           UserRepository userRepository,
                           PasswordEncoder passwordEncoder,
-                          InvalidatedTokenRepository invalidatedTokenRepository) {
+                          InvalidatedTokenRepository invalidatedTokenRepository,
+                          LoginRateLimiter loginRateLimiter,
+                          EmailService emailService) {
         this.authenticationManager = authenticationManager;
         this.jwtTokenProvider = jwtTokenProvider;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.invalidatedTokenRepository = invalidatedTokenRepository;
+        this.loginRateLimiter = loginRateLimiter;
+        this.emailService = emailService;
     }
 
     // ─────────────────────────────────────────────
     // FR-01.2 – Đăng nhập
     // ─────────────────────────────────────────────
     @PostMapping("/login")
-    public ResponseEntity<JwtAuthResponse> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+        String username = loginRequest.getUsername();
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.getUsername(),
-                        loginRequest.getPassword()
-                )
-        );
+        // Rate limiting – kiểm tra lockout
+        if (loginRateLimiter.isLockedOut(username)) {
+            long remainingMs = loginRateLimiter.getRemainingLockoutTime(username);
+            long minutes = remainingMs / 60_000;
+            throw new RateLimitExceededException(
+                    "Account temporarily locked due to too many failed attempts. Try again in " + minutes + " minutes.");
+        }
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(username, loginRequest.getPassword())
+            );
 
-        String token = jwtTokenProvider.generateToken(authentication);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        return ResponseEntity.ok(new JwtAuthResponse(token));
+            // Kiểm tra user status sau khi authenticate thành công
+            User user = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            checkUserStatus(user);
+
+            // Cập nhật lastLogin
+            user.setLastLogin(LocalDateTime.now());
+            userRepository.save(user);
+
+            // Reset rate limit
+            loginRateLimiter.recordSuccessfulLogin(username);
+
+            String token = jwtTokenProvider.generateToken(authentication);
+
+            return ResponseEntity.ok(new JwtAuthResponse(token, UserResponse.fromUser(user)));
+
+        } catch (BadCredentialsException | DisabledException | LockedException e) {
+            loginRateLimiter.recordFailedAttempt(username);
+            int remaining = loginRateLimiter.getRemainingAttempts(username);
+            if (remaining > 0) {
+                throw new BadCredentialsException(
+                        "Invalid username or password. " + remaining + " attempts remaining.");
+            }
+            throw new RateLimitExceededException(
+                    "Too many failed attempts. Account is temporarily locked for 15 minutes.");
+        }
     }
 
     // ─────────────────────────────────────────────
     // FR-01.1 – Đăng ký tài khoản
     // ─────────────────────────────────────────────
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
-        // Kiểm tra xem username đã tồn tại chưa
-        if (userRepository.existsByUsername(registerRequest.getUsername())) {
-            return new ResponseEntity<>("Username is already taken!", HttpStatus.BAD_REQUEST);
+    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest req) {
+        if (!req.getPassword().equals(req.getConfirmPassword())) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("confirmPassword", "Passwords do not match"));
         }
 
-        // Kiểm tra xem email đã tồn tại chưa
-        if (userRepository.existsByMail(registerRequest.getMail())) {
-            return new ResponseEntity<>("Email is already taken!", HttpStatus.BAD_REQUEST);
+        if (userRepository.existsByUsername(req.getUsername())) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("username", "Username is already taken"));
         }
 
-        // Sử dụng Lombok Builder để tạo đối tượng User dễ dàng và gọn gàng
+        if (userRepository.existsByMail(req.getMail())) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("mail", "Email is already taken"));
+        }
+
         User user = User.builder()
-                .username(registerRequest.getUsername())
-                .password(passwordEncoder.encode(registerRequest.getPassword())) // Mã hóa mật khẩu
-                .dob(registerRequest.getDob())
-                .mail(registerRequest.getMail())
-                .phone(registerRequest.getPhone())
-                .gender(registerRequest.getGender())
-                .workplace(registerRequest.getWorkplace())
-                .role(registerRequest.getRole() != null ? registerRequest.getRole() : Role.USER) // Default to USER
+                .username(req.getUsername())
+                .password(passwordEncoder.encode(req.getPassword()))
+                .dob(req.getDob())
+                .mail(req.getMail())
+                .phone(req.getPhone())
+                .gender(req.getGender())
+                .workplace(req.getWorkplace())
+                .role(req.getRole() != null ? req.getRole() : Role.USER)
+                .status(UserStatus.ACTIVE)
                 .build();
 
         userRepository.save(user);
 
-        return new ResponseEntity<>("User registered successfully", HttpStatus.CREATED);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.of("User registered successfully"));
+    }
+
+    // ─────────────────────────────────────────────
+    // FR-01.4 – Lấy thông tin user hiện tại
+    // ─────────────────────────────────────────────
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<UserResponse> getCurrentUser() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("User not found"));
+
+        return ResponseEntity.ok(UserResponse.fromUser(user));
     }
 
     // ─────────────────────────────────────────────
     // FR-01.3 – Đăng xuất
-    // Hủy session hiện tại, invalidate access token bằng cách đưa vào blacklist.
     // ─────────────────────────────────────────────
     @PostMapping("/logout")
     public ResponseEntity<?> logoutUser(HttpServletRequest request) {
         String token = extractToken(request);
 
         if (token == null || !jwtTokenProvider.validateToken(token)) {
-            return ResponseEntity.badRequest().body("Invalid or missing token.");
+            return ResponseEntity.badRequest().body(
+                    ApiResponse.of("Invalid or missing token"));
         }
 
         String jti = jwtTokenProvider.getJti(token);
 
-        // Token chưa bị invalidate → thêm vào blacklist
         if (!invalidatedTokenRepository.existsByJti(jti)) {
             InvalidatedToken invalidatedToken = InvalidatedToken.builder()
                     .jti(jti)
@@ -123,21 +184,9 @@ public class AuthController {
             invalidatedTokenRepository.save(invalidatedToken);
         }
 
-        // Xóa SecurityContext phía server
         SecurityContextHolder.clearContext();
 
-        return ResponseEntity.ok("Logged out successfully.");
-    }
-
-    // ─────────────────────────────────────────────
-    // Helper
-    // ─────────────────────────────────────────────
-    private String extractToken(HttpServletRequest request) {
-        String bearerToken = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
-        }
-        return null;
+        return ResponseEntity.ok(ApiResponse.of("Logged out successfully"));
     }
 
     // ─────────────────────────────────────────────
@@ -146,53 +195,72 @@ public class AuthController {
     @PostMapping("/change-password")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
-        // Kiểm tra xem mật khẩu mới và xác nhận mật khẩu có khớp nhau không
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            return ResponseEntity.badRequest().body("New password and confirm password do not match.");
+            return ResponseEntity.badRequest().body(
+                    Map.of("confirmPassword", "Passwords do not match"));
         }
 
-        // Lấy thông tin user hiện tại từ SecurityContext
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String currentUsername = authentication.getName();
-
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("User not found"));
 
-        // Kiểm tra mật khẩu cũ có đúng không
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
-            return ResponseEntity.badRequest().body("Incorrect old password.");
+            return ResponseEntity.badRequest().body(
+                    Map.of("oldPassword", "Incorrect old password"));
         }
 
-        // Mã hóa và lưu mật khẩu mới
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
-        return ResponseEntity.ok("Password changed successfully.");
+        return ResponseEntity.ok(ApiResponse.of("Password changed successfully"));
     }
 
     // ─────────────────────────────────────────────
-    // FR-01.6 – Quên mật khẩu (Reset Password - API Mock)
+    // FR-01.6 – Quên mật khẩu
     // ─────────────────────────────────────────────
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        User user = userRepository.findByMail(request.getMail())
-                .orElse(null);
+        User user = userRepository.findByMail(request.getMail()).orElse(null);
 
-        // Bảo mật: Không nên báo lỗi tường minh nếu email không tồn tại để tránh rò rỉ thông tin
+        // Không tiết lộ user có tồn tại hay không
         if (user == null) {
-            return ResponseEntity.ok("If the email exists, a new password will be provided.");
+            return ResponseEntity.ok(ApiResponse.of(
+                    "If the email exists, a new password will be sent to it."));
         }
 
-        // Tạo mật khẩu mới ngẫu nhiên (đáp ứng điều kiện: >= 9 ký tự, có Hoa, số, ký tự đặc biệt)
-        // Ví dụ: Trend@ + 6 ký tự random
-        String randomSuffix = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
-        String newRandomPassword = "Trend@" + randomSuffix + "1";
-
-        // Mã hóa và lưu vào DB
-        user.setPassword(passwordEncoder.encode(newRandomPassword));
+        String newPassword = generateRandomPassword();
+        user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
-        // Trong thực tế sẽ gửi email. Ở đây trả thẳng về màn hình để test.
-        return ResponseEntity.ok("Password has been reset successfully. Your new password is: " + newRandomPassword);
+        // Gửi email thực sự thay vì trả về response
+        emailService.sendPasswordReset(user.getMail(), newPassword);
+
+        return ResponseEntity.ok(ApiResponse.of(
+                "If the email exists, a new password will be sent to it."));
+    }
+
+    // ─────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────
+    private void checkUserStatus(User user) {
+        if (user.getStatus() == UserStatus.INACTIVE) {
+            throw new AccountDisabledException("Account is inactive. Please contact support.");
+        }
+        if (user.getStatus() == UserStatus.SUSPENDED) {
+            throw new AccountDisabledException("Account is suspended. Please contact support.");
+        }
+    }
+
+    private String extractToken(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
+    }
+
+    private String generateRandomPassword() {
+        String uuid = UUID.randomUUID().toString().replace("-", "").toUpperCase();
+        return "Trend@" + uuid.substring(0, 6) + "1";
     }
 }
