@@ -86,11 +86,13 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(Arrays.asList(
                 "http://localhost:*",
-                "https://trendsearchor-be-production.up.railway.app",
-                "https://trend-searchor-*.vercel.app"
+                "https://trend-searchor-fe.vercel.app",
+                "https://trend-searchor-fe-*.vercel.app"
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"
+        ));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

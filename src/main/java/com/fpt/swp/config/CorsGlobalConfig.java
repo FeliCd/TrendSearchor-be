@@ -40,8 +40,8 @@ public class CorsGlobalConfig implements WebMvcConfigurer {
         registry.addMapping("/**")
                 .allowedOriginPatterns(
                         "http://localhost:*",
-                        "https://trendsearchor-fe.vercel.app",
-                        "https://trend-searchor-*.vercel.app"
+                        "https://trend-searchor-fe.vercel.app",
+                        "https://trend-searchor-fe-*.vercel.app"
                 )
                 .allowedMethods(ALLOWED_METHODS.toArray(new String[0]))
                 .allowedHeaders(ALLOWED_HEADERS.toArray(new String[0]))
