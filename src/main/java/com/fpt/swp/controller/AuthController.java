@@ -41,7 +41,8 @@ import java.util.UUID;
                 "http://localhost:3000",
                 "http://localhost:5173",
                 "https://trend-searchor-fe.vercel.app",
-                "https://trend-searchor-fe-*.vercel.app"
+                "https://trend-searchor-fe-*.vercel.app",
+                "https://trendsearchor-be-production.up.railway.app"
         },
         allowCredentials = "true",
         allowedHeaders = {"Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"}

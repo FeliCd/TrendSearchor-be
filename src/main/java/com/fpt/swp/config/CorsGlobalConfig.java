@@ -41,7 +41,8 @@ public class CorsGlobalConfig implements WebMvcConfigurer {
                 .allowedOriginPatterns(
                         "http://localhost:*",
                         "https://trend-searchor-fe.vercel.app",
-                        "https://trend-searchor-fe-*.vercel.app"
+                        "https://trend-searchor-fe-*.vercel.app",
+                        "https://trendsearchor-be-production.up.railway.app"
                 )
                 .allowedMethods(ALLOWED_METHODS.toArray(new String[0]))
                 .allowedHeaders(ALLOWED_HEADERS.toArray(new String[0]))

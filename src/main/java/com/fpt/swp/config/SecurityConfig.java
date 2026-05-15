@@ -87,7 +87,8 @@ public class SecurityConfig {
         configuration.setAllowedOriginPatterns(Arrays.asList(
                 "http://localhost:*",
                 "https://trend-searchor-fe.vercel.app",
-                "https://trend-searchor-fe-*.vercel.app"
+                "https://trend-searchor-fe-*.vercel.app",
+                "https://trendsearchor-be-production.up.railway.app"
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList(

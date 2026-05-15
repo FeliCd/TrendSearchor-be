@@ -38,6 +38,7 @@ public final class AppConstants {
             "http://localhost:5173",
             "http://localhost:3000",
             "https://trend-searchor-fe.vercel.app",
-            "https://trend-searchor-fe-*.vercel.app"
+            "https://trend-searchor-fe-*.vercel.app",
+            "https://trendsearchor-be-production.up.railway.app"
     };
 }
