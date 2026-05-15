@@ -73,6 +73,8 @@ public class SecurityConfig {
                     ).permitAll();
 
                     auth.requestMatchers("/api/auth/**", "/error").permitAll();
+                    auth.requestMatchers("/api/dashboard/public", "/api/trends/**").permitAll();
+                    auth.requestMatchers("/api/papers/**", "/api/journals/**", "/api/authors/**", "/api/keywords/**", "/api/topics/**", "/api/top-papers").permitAll();
                     auth.anyRequest().authenticated();
                 });
 

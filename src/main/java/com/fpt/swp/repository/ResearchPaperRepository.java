@@ -1,0 +1,53 @@
+package com.fpt.swp.repository;
+
+import com.fpt.swp.model.ResearchPaper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface ResearchPaperRepository extends JpaRepository<ResearchPaper, Long> {
+
+    Optional<ResearchPaper> findByExternalId(String externalId);
+
+    Boolean existsByExternalId(String externalId);
+
+    @Query("SELECT p FROM ResearchPaper p WHERE LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%'))")
+    Page<ResearchPaper> searchByTitle(@Param("query") String query, Pageable pageable);
+
+    @Query("SELECT p FROM ResearchPaper p WHERE p.year = :year")
+    Page<ResearchPaper> findByYear(@Param("year") Integer year, Pageable pageable);
+
+    @Query("SELECT p FROM ResearchPaper p WHERE p.year BETWEEN :startYear AND :endYear")
+    Page<ResearchPaper> findByYearRange(
+            @Param("startYear") Integer startYear,
+            @Param("endYear") Integer endYear,
+            Pageable pageable);
+
+    @Query("SELECT COUNT(p) FROM ResearchPaper p")
+    Long countTotalPapers();
+
+    @Query("SELECT COUNT(p) FROM ResearchPaper p WHERE p.year = :year")
+    Long countByYear(@Param("year") Integer year);
+
+    @Query("SELECT DISTINCT p.year FROM ResearchPaper p WHERE p.year IS NOT NULL ORDER BY p.year DESC")
+    List<Integer> findDistinctYears();
+
+    @Query("SELECT p FROM ResearchPaper p JOIN p.journals j WHERE j.id = :journalId")
+    Page<ResearchPaper> findByJournalId(@Param("journalId") Long journalId, Pageable pageable);
+
+    @Query("SELECT p FROM ResearchPaper p JOIN p.authors a WHERE a.id = :authorId")
+    Page<ResearchPaper> findByAuthorId(@Param("authorId") Long authorId, Pageable pageable);
+
+    @Query("SELECT p FROM ResearchPaper p JOIN p.keywords k WHERE k.id = :keywordId")
+    Page<ResearchPaper> findByKeywordId(@Param("keywordId") Long keywordId, Pageable pageable);
+
+    @Query("SELECT p FROM ResearchPaper p ORDER BY p.citationCount DESC")
+    Page<ResearchPaper> findTopByCitations(Pageable pageable);
+}
