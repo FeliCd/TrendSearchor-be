@@ -17,11 +17,11 @@ import java.util.Map;
         origins = {
                 "http://localhost:3000",
                 "http://localhost:5173",
-                "https://trendsearchor-fe.vercel.app",
-                "https://trend-searchor-*.vercel.app"
+                "https://trend-searchor-fe.vercel.app",
+                "https://trend-searchor-fe-*.vercel.app"
         },
         allowCredentials = "true",
-        allowedHeaders = {"Authorization", "Content-Type", "Accept", "X-Requested-With"}
+        allowedHeaders = {"Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"}
 )
 public class UserController {
 
