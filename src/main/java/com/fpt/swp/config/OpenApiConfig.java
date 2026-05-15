@@ -13,15 +13,12 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 @Configuration
 public class OpenApiConfig {
 
-    @Value("${spring.profiles.active:dev}")
-    private String activeProfile;
+    @Value("${app.base-url:https://trendsearchor-be-production.up.railway.app}")
+    private String baseUrl;
 
     @Bean
     public OpenAPI customOpenAPI() {
         final String securitySchemeName = "bearerAuth";
-
-        boolean isProd = "prod".equalsIgnoreCase(activeProfile)
-                || "production".equalsIgnoreCase(activeProfile);
 
         OpenAPI openApi = new OpenAPI()
                 .info(new Info()
@@ -34,12 +31,8 @@ public class OpenApiConfig {
                                 .name(securitySchemeName)
                                 .type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer")
-                                .bearerFormat("JWT")));
-
-        if (!isProd) {
-            openApi.addServersItem(
-                    new Server().url("http://localhost:8080").description("Local Server"));
-        }
+                                .bearerFormat("JWT")))
+                .addServersItem(new Server().url(baseUrl).description("Production Server"));
 
         return openApi;
     }
