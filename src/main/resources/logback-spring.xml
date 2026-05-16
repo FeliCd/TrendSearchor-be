@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- Console appender for Railway logs -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Root level: INFO -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+    <!-- DEBUG for auth-related classes -->
+    <logger name="com.fpt.swp" level="DEBUG"/>
+    <logger name="com.fpt.swp.security" level="DEBUG"/>
+    <logger name="com.fpt.swp.controller.AuthController" level="DEBUG"/>
+    <logger name="org.springframework.security" level="DEBUG"/>
+    <logger name="org.springframework.web" level="DEBUG"/>
+    <logger name="org.hibernate.SQL" level="DEBUG"/>
+
+    <!-- Reduce noise from other libraries -->
+    <logger name="org.apache" level="WARN"/>
+    <logger name="org.springframework.web.servlet.resource" level="WARN"/>
+</configuration>
