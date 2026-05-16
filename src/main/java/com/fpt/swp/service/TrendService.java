@@ -1,7 +1,10 @@
 package com.fpt.swp.service;
 
 import com.fpt.swp.dto.KeywordTrendDto;
+import com.fpt.swp.dto.TopicComparisonDto;
+import com.fpt.swp.dto.TrendAnalysisDto;
 import com.fpt.swp.dto.TrendDataDto;
+import com.fpt.swp.dto.TrendingTopicDto;
 import com.fpt.swp.dto.YearlyStatsDto;
 import com.fpt.swp.model.*;
 import com.fpt.swp.repository.*;
@@ -26,6 +29,7 @@ public class TrendService {
     private final ResearchTopicRepository topicRepository;
     private final UserFollowRepository followRepository;
     private final BookmarkRepository bookmarkRepository;
+    private final TrendAnalysisService trendAnalysisService;
 
     @Transactional(readOnly = true)
     public List<TrendDataDto> getTrendByKeyword(String keyword) {
@@ -161,5 +165,59 @@ public class TrendService {
 
         stats.sort(Comparator.comparing(YearlyStatsDto::getYear));
         return stats;
+    }
+
+    // === Phase 1: Publication Trend (MVP) ===
+
+    /**
+     * Full analysis of a keyword: trend data, growth rates, status, insight, forecast.
+     */
+    @Transactional(readOnly = true)
+    public TrendAnalysisDto getPublicationTrend(String keyword, Integer startYear, Integer endYear) {
+        return trendAnalysisService.analyzeKeyword(keyword, startYear, endYear);
+    }
+
+    /**
+     * Search and analyze a keyword in real-time from OpenAlex.
+     */
+    @Transactional(readOnly = true)
+    public TrendAnalysisDto searchAndAnalyze(String query) {
+        return trendAnalysisService.searchAndAnalyze(query);
+    }
+
+    // === Phase 2: Trending Topics ===
+
+    /**
+     * Get topic ranking with TrendScore, growth rate, status.
+     */
+    @Transactional(readOnly = true)
+    public List<TrendingTopicDto> getTopicRanking(int limit) {
+        return trendAnalysisService.getTrendingTopicsRanking(limit);
+    }
+
+    /**
+     * Get topics that are emerging (low historical + high recent growth).
+     */
+    @Transactional(readOnly = true)
+    public List<TrendingTopicDto> getEmergingTopics(int limit) {
+        return trendAnalysisService.getEmergingTopics(limit);
+    }
+
+    /**
+     * Compare multiple topics side by side with auto-generated insight.
+     */
+    @Transactional(readOnly = true)
+    public TopicComparisonDto compareTopics(List<String> keywords) {
+        return trendAnalysisService.compareTopics(keywords);
+    }
+
+    // === Phase 3: Keyword Relations ===
+
+    /**
+     * Get keyword co-occurrence data for network graph.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getKeywordCooccurrence(String keyword, int maxResults) {
+        return trendAnalysisService.getKeywordCooccurrence(keyword, maxResults);
     }
 }

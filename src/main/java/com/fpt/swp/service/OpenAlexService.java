@@ -60,9 +60,21 @@ public class OpenAlexService {
         Optional<String> cached = cacheService.get(cacheKey, String.class);
         if (cached.isPresent()) {
             try {
+                @SuppressWarnings("unchecked")
                 Map<String, Object> parsed = new ObjectMapper().readValue(cached.get(), Map.class);
-                log.debug("OpenAlex cache HIT for query: {}", query);
-                return parsed;
+                if (parsed.containsKey("papers")) {
+                    log.debug("OpenAlex cache HIT for query: {}", query);
+                    return parsed;
+                }
+                Map<String, Object> processed = parseSearchResponse(cached.get(), offset, limit);
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> papers = (List<Map<String, Object>>) processed.getOrDefault("papers", Collections.emptyList());
+                long total = ((Number) processed.getOrDefault("total", 0)).longValue();
+                if (total > 0 && !papers.isEmpty()) {
+                    cacheService.put(cacheKey, processed, java.time.Duration.ofMinutes(15));
+                }
+                log.debug("OpenAlex cache HIT (legacy format) for query: {}", query);
+                return processed;
             } catch (Exception e) {
                 log.warn("Failed to deserialize cached OpenAlex result: {}", e.getMessage());
             }
@@ -96,7 +108,7 @@ public class OpenAlexService {
             log.info("OpenAlex search: query={}, total={}, returned={}", query, total, papers.size());
 
             if (total > 0 && !papers.isEmpty()) {
-                cacheService.put(cacheKey, responseBody, java.time.Duration.ofMinutes(15));
+                cacheService.put(cacheKey, parsed, java.time.Duration.ofMinutes(15));
             }
 
             return parsed;
@@ -112,6 +124,7 @@ public class OpenAlexService {
         Optional<String> cached = cacheService.get(cacheKey, String.class);
         if (cached.isPresent()) {
             try {
+                @SuppressWarnings("unchecked")
                 Map<String, Object> parsed = new ObjectMapper().readValue(cached.get(), Map.class);
                 log.debug("OpenAlex paper cache HIT: id={}", openAlexId);
                 return parsed;
@@ -360,5 +373,135 @@ public class OpenAlexService {
     public void evictSearchCache() {
         cacheService.evictByPrefix(CACHE_PREFIX_SEARCH);
         log.info("Evicted all OpenAlex search cache entries");
+    }
+
+    /**
+     * Get works count grouped by publication year using OpenAlex group_by.
+     * Falls back to paginated search if group_by is not supported.
+     */
+    public Map<String, Object> getWorksCountByYear(String query, Integer startYear, Integer endYear) {
+        String encodedQuery = query.replace(" ", "%20");
+        String cacheKey = "oa:groupby:" + encodedQuery + ":" + startYear + ":" + endYear;
+
+        Optional<String> cached = cacheService.get(cacheKey, String.class);
+        if (cached.isPresent()) {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> parsed = new ObjectMapper().readValue(cached.get(), Map.class);
+                return parsed;
+            } catch (Exception e) {
+                log.warn("Failed to deserialize cached group-by result: {}", e.getMessage());
+            }
+        }
+
+        try {
+            StringBuilder urlBuilder = new StringBuilder(BASE_URL)
+                    .append("/works?search=").append(encodedQuery)
+                    .append("&mailto=").append(mailto)
+                    .append("&per-page=1")
+                    .append("&group-by=publication_year");
+
+            if (startYear != null && startYear > 0) {
+                urlBuilder.append("&filter=publication_year:>").append(startYear - 1);
+            }
+            if (endYear != null && endYear > 0) {
+                urlBuilder.append(",publication_year:<").append(endYear + 1);
+            }
+
+            String url = urlBuilder.toString();
+            log.info("OpenAlex group-by: query={}, startYear={}, endYear={}", query, startYear, endYear);
+
+            String responseBody = retryHandler.executeWithRetryRaw("openalex/groupby", url);
+
+            if (responseBody == null) {
+                return fallbackGetWorksCountByYear(query, startYear, endYear);
+            }
+
+            Map<String, Object> result = parseGroupByResponse(responseBody);
+            cacheService.put(cacheKey, new ObjectMapper().writeValueAsString(result), java.time.Duration.ofHours(1));
+            return result;
+
+        } catch (Exception e) {
+            log.error("OpenAlex group-by failed for query '{}': {}", query, e.getMessage());
+            return fallbackGetWorksCountByYear(query, startYear, endYear);
+        }
+    }
+
+    private Map<String, Object> fallbackGetWorksCountByYear(String query, Integer startYear, Integer endYear) {
+        log.info("OpenAlex fallback: fetching papers one by one for query={}", query);
+        Map<Integer, Integer> yearCounts = new java.util.LinkedHashMap<>();
+
+        try {
+            int offset = 0;
+            int pageSize = 200;
+            int maxYear = endYear != null ? endYear : java.time.Year.now().getValue();
+            int minYear = startYear != null ? startYear : 2015;
+
+            for (int page = 0; page < 20; page++) {
+                Map<String, Object> response = searchPapersRaw(query, offset, pageSize);
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> papers = (List<Map<String, Object>>) response.getOrDefault("papers", java.util.Collections.emptyList());
+
+                if (papers.isEmpty()) break;
+
+                for (Map<String, Object> paper : papers) {
+                    Object yearObj = paper.get("year");
+                    if (yearObj == null) continue;
+                    int year = ((Number) yearObj).intValue();
+                    if (year < minYear || year > maxYear) continue;
+
+                    yearCounts.merge(year, 1, Integer::sum);
+                }
+
+                offset += pageSize;
+                if (papers.size() < pageSize) break;
+            }
+
+            Map<String, Object> result = new java.util.LinkedHashMap<>();
+            result.put("yearlyData", yearCounts.entrySet().stream()
+                    .sorted(java.util.Map.Entry.comparingByKey())
+                    .map(e -> {
+                        Map<String, Object> item = new java.util.LinkedHashMap<>();
+                        item.put("year", e.getKey());
+                        item.put("count", e.getValue());
+                        return item;
+                    })
+                    .collect(java.util.stream.Collectors.toList()));
+            result.put("keyword", query.toLowerCase());
+            result.put("source", "fallback");
+
+            return result;
+
+        } catch (Exception e) {
+            log.error("Fallback group-by also failed: {}", e.getMessage());
+            Map<String, Object> empty = new java.util.LinkedHashMap<>();
+            empty.put("yearlyData", java.util.Collections.emptyList());
+            empty.put("keyword", query.toLowerCase());
+            return empty;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parseGroupByResponse(String responseBody) throws Exception {
+        JsonNode root = new ObjectMapper().readTree(responseBody);
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        List<Map<String, Object>> yearlyData = new java.util.ArrayList<>();
+
+        JsonNode groups = root.get("group_by");
+        if (groups != null && groups.isArray()) {
+            for (JsonNode group : groups) {
+                Map<String, Object> item = new java.util.LinkedHashMap<>();
+                JsonNode key = group.get("key");
+                item.put("year", key != null && !key.isNull() ? key.asInt() : 0);
+                item.put("count", group.has("count") ? group.get("count").asInt() : 0);
+                yearlyData.add(item);
+            }
+        }
+
+        yearlyData.sort((a, b) -> Integer.compare((Integer) a.get("year"), (Integer) b.get("year")));
+        result.put("yearlyData", yearlyData);
+        result.put("keyword", root.has("meta") && root.get("meta").has("query") ? root.get("meta").get("query").asText() : "unknown");
+        result.put("source", "openalex");
+        return result;
     }
 }

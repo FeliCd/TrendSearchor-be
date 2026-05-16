@@ -62,8 +62,8 @@ public class SearchService {
         );
 
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> rawPapers = (List<Map<String, Object>>) rawResult.getOrDefault("papers", Collections.emptyList());
-        long total = ((Number) rawResult.getOrDefault("total", 0)).longValue();
+        List<Map<String, Object>> rawPapers = findPapersList(rawResult);
+        long total = findTotal(rawResult);
 
         List<PaperDto> papers = rawPapers.stream()
                 .map(p -> mapToPaperDto(p, userId))
@@ -80,6 +80,33 @@ public class SearchService {
                 .size(request.getSize())
                 .totalPages((int) Math.ceil((double) total / request.getSize()))
                 .build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> findPapersList(Map<String, Object> rawResult) {
+        if (rawResult.containsKey("papers")) {
+            return (List<Map<String, Object>>) rawResult.get("papers");
+        }
+        if (rawResult.containsKey("results")) {
+            return (List<Map<String, Object>>) rawResult.get("results");
+        }
+        return Collections.emptyList();
+    }
+
+    @SuppressWarnings("unchecked")
+    private long findTotal(Map<String, Object> rawResult) {
+        if (rawResult.containsKey("total")) {
+            Object t = rawResult.get("total");
+            if (t instanceof Number) return ((Number) t).longValue();
+        }
+        if (rawResult.containsKey("meta")) {
+            Object meta = rawResult.get("meta");
+            if (meta instanceof Map) {
+                Object count = ((Map<String, Object>) meta).get("count");
+                if (count instanceof Number) return ((Number) count).longValue();
+            }
+        }
+        return 0L;
     }
 
     private PaperDto mapToPaperDto(Map<String, Object> raw, Long userId) {
