@@ -163,7 +163,7 @@ public class AuthController {
                 .phone(req.getPhone())
                 .gender(req.getGender())
                 .workplace(req.getWorkplace())
-                .role(req.getRole() != null ? req.getRole() : Role.USER)
+                .role(req.getValidatedRole())
                 .status(UserStatus.ACTIVE)
                 .build();
 
