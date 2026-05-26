@@ -51,6 +51,7 @@ public class User {
 
     @Builder.Default
     @Enumerated(EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.VARCHAR)
     @Column(nullable = false)
     private UserStatus status = UserStatus.ACTIVE;
 
