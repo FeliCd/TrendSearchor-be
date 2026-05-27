@@ -12,9 +12,10 @@
    - [3.5 Forgot Password](#35-post-apiauthforgot-password)
    - [3.6 Logout](#36-post-apiauthlogout)
 4. [Admin User Management Endpoints](#4-admin-user-management-endpoints)
-5. [Error Handling](#5-error-handling)
-6. [Enums Reference](#6-enums-reference)
-7. [Validation Rules](#7-validation-rules)
+5. [Report Endpoints (FR-06)](#5-report-endpoints-fr-06)
+6. [Error Handling](#6-error-handling)
+7. [Enums Reference](#7-enums-reference)
+8. [Validation Rules](#8-validation-rules)
 
 ---
 
@@ -656,9 +657,116 @@ Authorization: Bearer <adminToken>
 
 ---
 
-## 5. Error Handling
+## 5. Report Endpoints (FR-06)
 
-### 5.1 HTTP Status Codes
+All endpoints in this section require authentication (any role).
+
+```
+Authorization: Bearer <accessToken>
+```
+
+### 5.1 POST `/api/reports`
+
+Create a new trend analysis report.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `keyword` | string | ✅ | The keyword/topic to analyze |
+| `reportType` | string | ✅ | Should be `TREND_SUMMARY` for now |
+| `startYear` | number | ❌ | e.g. 2018 |
+| `endYear` | number | ❌ | e.g. 2024 |
+
+**Request Example:**
+
+```json
+{
+  "keyword": "machine learning",
+  "reportType": "TREND_SUMMARY",
+  "startYear": 2018,
+  "endYear": 2024
+}
+```
+
+**Response `200 OK`:**
+
+```json
+{
+  "id": 1,
+  "reportType": "TREND_SUMMARY",
+  "title": "Trend Analysis Report: machine learning",
+  "content": {
+    "keyword": "machine learning",
+    "status": "STABLE",
+    "insight": "The 'machine learning' field has accumulated 224 publications...",
+    "yearlyData": [
+      {
+        "year": 2024,
+        "paperCount": 224,
+        "citationCount": 0,
+        "avgCitations": 0.0,
+        "yoyGrowth": null
+      }
+    ]
+  },
+  "parameters": {
+    "keyword": "machine learning",
+    "startYear": 2018,
+    "endYear": 2024
+  },
+  "createdAt": "2026-05-26T13:10:16"
+}
+```
+
+---
+
+### 5.2 GET `/api/reports`
+
+Get the history of reports created by the current user.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | int | `0` | Page number (0-indexed) |
+| `size` | int | `10` | Items per page |
+
+**Response `200 OK`:** Returns a standard Spring Data `Page` object containing a list of reports.
+
+---
+
+### 5.3 GET `/api/reports/{id}`
+
+Get details of a specific report.
+
+**Response `200 OK`:** Same as the response from `POST /api/reports`.
+
+---
+
+### 5.4 GET `/api/reports/{id}/download/csv`
+
+Download the report as a CSV file.
+
+**Response:**
+- Content-Type: `text/csv`
+- Returns a raw CSV string. Use `window.open` or create a Blob to trigger download on the frontend.
+
+---
+
+### 5.5 GET `/api/reports/{id}/download/pdf`
+
+Download the report as a PDF file.
+
+**Response:**
+- Content-Type: `application/pdf`
+- Returns binary PDF data.
+
+---
+
+## 6. Error Handling
+
+### 6.1 HTTP Status Codes
 
 | Code | Meaning | When it occurs |
 |------|---------|----------------|
@@ -671,7 +779,7 @@ Authorization: Bearer <adminToken>
 | `429` | Too Many Requests | Rate limit exceeded (5 failed login attempts) |
 | `500` | Internal Server Error | Unexpected server error |
 
-### 5.2 Error Response Format
+### 6.2 Error Response Format
 
 All error responses follow this structure:
 
@@ -691,7 +799,7 @@ All error responses follow this structure:
 }
 ```
 
-### 5.3 Recommended FE Error Handling
+### 6.3 Recommended FE Error Handling
 
 ```typescript
 async function apiCall(url, options = {}) {
@@ -730,9 +838,9 @@ async function apiCall(url, options = {}) {
 
 ---
 
-## 6. Enums Reference
+## 7. Enums Reference
 
-### 6.1 Role
+### 7.1 Role
 
 | Value | Description |
 |-------|-------------|
@@ -742,7 +850,7 @@ async function apiCall(url, options = {}) {
 | `RESEARCHER` | Research account |
 | `USER` | Default general user |
 
-### 6.2 Gender
+### 7.2 Gender
 
 | Value |
 |-------|
@@ -750,7 +858,7 @@ async function apiCall(url, options = {}) {
 | `FEMALE` |
 | `OTHERS` |
 
-### 6.3 UserStatus
+### 7.3 UserStatus
 
 | Value | Description |
 |-------|-------------|
@@ -760,9 +868,9 @@ async function apiCall(url, options = {}) {
 
 ---
 
-## 7. Validation Rules
+## 8. Validation Rules
 
-### 7.1 Password
+### 8.1 Password
 
 ```
 Pattern: ^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{9,}$
@@ -779,7 +887,7 @@ Pattern: ^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{9,}$
 - ❌ `TrendPass123` (no special character)
 - ❌ `Trend@Pass` (only 8 chars)
 
-### 7.2 Phone Number (Vietnam)
+### 8.2 Phone Number (Vietnam)
 
 ```
 Pattern: ^0[35789][0-9]{8}$
@@ -794,7 +902,7 @@ Pattern: ^0[35789][0-9]{8}$
 - ❌ `0123456789` (starts with 01)
 - ❌ `091234567` (only 9 digits)
 
-### 7.3 Date of Birth
+### 8.3 Date of Birth
 
 - Must be a **past date**
 - Year must be **greater than 1920**
