@@ -140,10 +140,7 @@ public class AuthController {
     // ─────────────────────────────────────────────
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest req) {
-        if (!req.getPassword().equals(req.getConfirmPassword())) {
-            return ResponseEntity.badRequest().body(
-                    Map.of("confirmPassword", "Passwords do not match"));
-        }
+
 
         if (userRepository.existsByUsername(req.getUsername())) {
             return ResponseEntity.badRequest().body(
@@ -163,7 +160,7 @@ public class AuthController {
                 .phone(req.getPhone())
                 .gender(req.getGender())
                 .workplace(req.getWorkplace())
-                .role(req.getRole() != null ? req.getRole() : Role.USER)
+                .role(Role.STUDENT)
                 .status(UserStatus.ACTIVE)
                 .build();
 

@@ -23,8 +23,6 @@ public class RegisterRequest {
     @Pattern(regexp = AppConstants.PASSWORD_PATTERN, message = AppConstants.MSG_PASSWORD_INVALID)
     private String password;
 
-    @NotBlank(message = "Confirm password is required")
-    private String confirmPassword;
 
     @NotNull(message = "Date of birth is required")
     @ValidDob
@@ -44,5 +42,4 @@ public class RegisterRequest {
     @NotBlank(message = "Workplace is required")
     private String workplace;
 
-    private Role role;
 }
