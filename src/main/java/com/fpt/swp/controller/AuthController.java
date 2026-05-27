@@ -140,7 +140,10 @@ public class AuthController {
     // ─────────────────────────────────────────────
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest req) {
-
+        if (req.getRole() != null && req.getRole() != Role.STUDENT && req.getRole() != Role.RESEARCHER && req.getRole() != Role.USER) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("role", "Invalid role selected. Only STUDENT or RESEARCHER are allowed."));
+        }
 
         if (userRepository.existsByUsername(req.getUsername())) {
             return ResponseEntity.badRequest().body(
@@ -160,7 +163,7 @@ public class AuthController {
                 .phone(req.getPhone())
                 .gender(req.getGender())
                 .workplace(req.getWorkplace())
-                .role(Role.STUDENT)
+                .role(req.getRole() != null ? req.getRole() : Role.STUDENT)
                 .status(UserStatus.ACTIVE)
                 .build();
 

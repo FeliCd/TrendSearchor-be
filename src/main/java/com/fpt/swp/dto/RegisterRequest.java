@@ -42,4 +42,5 @@ public class RegisterRequest {
     @NotBlank(message = "Workplace is required")
     private String workplace;
 
+    private Role role;
 }
