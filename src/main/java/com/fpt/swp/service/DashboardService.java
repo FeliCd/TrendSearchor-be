@@ -27,6 +27,8 @@ public class DashboardService {
     private final BookmarkRepository bookmarkRepository;
     private final NotificationRepository notificationRepository;
     private final TrendService trendService;
+    private final UserRepository userRepository;
+    private final ApiDataSourceRepository apiDataSourceRepository;
 
     @Transactional(readOnly = true)
     public DashboardStatsDto getPublicDashboardStats() {
@@ -138,6 +140,19 @@ public class DashboardService {
         stats.put("totalAuthors", authorRepository.count());
         stats.put("totalKeywords", keywordRepository.count());
         stats.put("totalTopics", topicRepository.count());
+        stats.put("totalUsers", userRepository.count());
+        
+        List<Map<String, Object>> apiSyncStats = apiDataSourceRepository.findAll().stream()
+            .map(api -> {
+                Map<String, Object> apiStat = new HashMap<>();
+                apiStat.put("sourceName", api.getSourceName());
+                apiStat.put("lastSyncAt", api.getLastSyncAt());
+                apiStat.put("lastSyncStatus", api.getLastSyncStatus());
+                apiStat.put("recordsSynced", api.getRecordsSynced());
+                return apiStat;
+            }).collect(Collectors.toList());
+        stats.put("apiSyncStatuses", apiSyncStats);
+        
         return stats;
     }
 }

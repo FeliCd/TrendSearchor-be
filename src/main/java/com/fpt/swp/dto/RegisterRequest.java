@@ -45,18 +45,4 @@ public class RegisterRequest {
     private String workplace;
 
     private Role role;
-
-    public Role getValidatedRole() {
-        if (role == null) {
-            return Role.STUDENT;
-        }
-        switch (role) {
-            case STUDENT:
-            case LECTURER:
-            case RESEARCHER:
-                return role;
-            default:
-                return Role.STUDENT;
-        }
-    }
 }

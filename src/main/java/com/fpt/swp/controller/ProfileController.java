@@ -11,8 +11,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api/profile")
 @PreAuthorize("isAuthenticated()")
@@ -69,33 +67,5 @@ public class ProfileController {
         if (req.getWorkplace() != null) user.setWorkplace(req.getWorkplace());
 
         return ResponseEntity.ok(UserResponse.fromUser(userRepository.save(user)));
-    }
-
-    @PostMapping("/change-role")
-    public ResponseEntity<?> changeRole(@RequestBody Map<String, String> body) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("User not found"));
-
-        String newRoleStr = body.get("role");
-        if (newRoleStr == null || newRoleStr.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("role", "Role is required"));
-        }
-
-        com.fpt.swp.model.Role newRole;
-        try {
-            newRole = com.fpt.swp.model.Role.valueOf(newRoleStr.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("role", "Invalid role value"));
-        }
-
-        if (newRole == com.fpt.swp.model.Role.ADMIN) {
-            return ResponseEntity.status(403).body(Map.of("role", "Cannot change to admin role"));
-        }
-
-        user.setRole(newRole);
-        userRepository.save(user);
-
-        return ResponseEntity.ok(UserResponse.fromUser(user));
     }
 }

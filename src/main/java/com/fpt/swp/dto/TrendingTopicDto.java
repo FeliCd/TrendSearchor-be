@@ -3,7 +3,7 @@ package com.fpt.swp.dto;
 import lombok.*;
 
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class TrendingTopicDto {
