@@ -681,6 +681,55 @@ Authorization: Bearer <adminToken>
 
 ---
 
+### 4.8 GET `/api/admin/api-sources`
+
+Get all configured API data sources (FR-08.3).
+
+**Response `200 OK`:** Returns a list of sources.
+```json
+[
+  {
+    "id": 1,
+    "sourceName": "OPENALEX",
+    "baseUrl": "https://api.openalex.org",
+    "rateLimitPerDay": 864000,
+    "isActive": true,
+    "lastSyncAt": "2024-05-28T02:00:00",
+    "lastSyncStatus": "SUCCESS",
+    "recordsSynced": 500,
+    "syncSchedule": "0 0 2 * * ?"
+  }
+]
+```
+
+### 4.9 PUT `/api/admin/api-sources/{id}`
+
+Update an API data source configuration, including its sync schedule (FR-07.1).
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `syncSchedule` | string | ❌ | Cron expression (e.g. `0 0 4 * * ?`) |
+| `rateLimitPerDay` | int | ❌ | |
+| `isActive` | boolean | ❌ | |
+
+### 4.10 POST `/api/admin/api-sources/sync-now`
+
+Manually trigger the data sync process (FR-07.2).
+
+**Query Params:**
+- `limit` (default: 10): Number of papers to fetch per keyword.
+
+**Response `200 OK`:**
+```json
+{
+  "message": "Sync started in background"
+}
+```
+
+---
+
 ## 5. Report Endpoints (FR-06)
 
 All endpoints in this section require authentication (any role).
