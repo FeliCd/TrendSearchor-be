@@ -764,7 +764,68 @@ Download the report as a PDF file.
 
 ---
 
-## 6. Error Handling
+## 6. Notification Endpoints (FR-05)
+
+All endpoints in this section require authentication.
+Base URL: `/api/notifications`
+
+### 6.1 GET `/api/notifications`
+Get a paginated list of all notifications for the current user.
+
+**Query Params:**
+- `page` (default: 0)
+- `size` (default: 10)
+
+**Response:**
+Returns a paginated object containing notifications.
+```json
+{
+  "content": [
+    {
+      "id": 1,
+      "title": "New Papers Available",
+      "message": "We found 2 new papers for topic: machine learning",
+      "isRead": false,
+      "notificationType": "SYSTEM",
+      "createdAt": "2024-05-28T14:30:00"
+    }
+  ],
+  "pageable": { ... },
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
+### 6.2 GET `/api/notifications/unread`
+Get only unread notifications.
+
+**Query Params:**
+- `page` (default: 0)
+- `size` (default: 10)
+
+### 6.3 GET `/api/notifications/unread/count`
+Get the total number of unread notifications (useful for bell icon badges).
+
+**Response:**
+```json
+{
+  "count": 5
+}
+```
+
+### 6.4 PATCH `/api/notifications/{id}/read`
+Mark a specific notification as read.
+
+**Response `200 OK`:** No content body.
+
+### 6.5 PATCH `/api/notifications/read-all`
+Mark all notifications of the current user as read.
+
+**Response `200 OK`:** No content body.
+
+---
+
+## 7. Error Handling
 
 ### 6.1 HTTP Status Codes
 
