@@ -50,6 +50,9 @@ public class ApiDataSourceService {
         entity.setApiKey(dto.getApiKey());
         entity.setRateLimitPerDay(dto.getRateLimitPerDay() != null ? dto.getRateLimitPerDay() : 1000);
         entity.setIsActive(dto.getIsActive() != null ? dto.getIsActive() : true);
+        if (dto.getSyncSchedule() != null) {
+            entity.setSyncSchedule(dto.getSyncSchedule());
+        }
         
         return mapToDto(repository.save(entity));
     }
@@ -73,6 +76,7 @@ public class ApiDataSourceService {
                 .lastSyncAt(entity.getLastSyncAt())
                 .lastSyncStatus(entity.getLastSyncStatus())
                 .recordsSynced(entity.getRecordsSynced())
+                .syncSchedule(entity.getSyncSchedule())
                 .build();
     }
 
@@ -84,6 +88,7 @@ public class ApiDataSourceService {
                 .apiKey(dto.getApiKey())
                 .rateLimitPerDay(dto.getRateLimitPerDay() != null ? dto.getRateLimitPerDay() : 1000)
                 .isActive(dto.getIsActive() != null ? dto.getIsActive() : true)
+                .syncSchedule(dto.getSyncSchedule() != null ? dto.getSyncSchedule() : "0 0 2 * * ?")
                 .build();
     }
 }

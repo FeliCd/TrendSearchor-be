@@ -18,4 +18,5 @@ public class ApiDataSourceDto {
     private LocalDateTime lastSyncAt;
     private SyncStatus lastSyncStatus;
     private Integer recordsSynced;
+    private String syncSchedule;
 }

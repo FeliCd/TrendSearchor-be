@@ -74,6 +74,7 @@ public class DataSyncService {
             log.info("Sync completed for keyword: {}, papers saved: {}", keyword, fetched);
             
             if (fetched > 0) {
+                final int finalFetched = fetched;
                 topicRepository.findByName(keyword).ifPresent(topic -> {
                     java.util.List<Long> followerIds = userFollowRepository.findUserIdsByTopicId(topic.getId());
                     if (!followerIds.isEmpty()) {
@@ -81,7 +82,7 @@ public class DataSyncService {
                                 followerIds,
                                 NotificationType.SYSTEM,
                                 "New Papers Available",
-                                "We found " + fetched + " new papers for topic: " + keyword
+                                "We found " + finalFetched + " new papers for topic: " + keyword
                         );
                     }
                 });

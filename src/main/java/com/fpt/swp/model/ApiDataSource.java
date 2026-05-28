@@ -47,6 +47,10 @@ public class ApiDataSource {
     @Builder.Default
     private Integer recordsSynced = 0;
 
+    @Column(name = "sync_schedule")
+    @Builder.Default
+    private String syncSchedule = "0 0 2 * * ?";
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
