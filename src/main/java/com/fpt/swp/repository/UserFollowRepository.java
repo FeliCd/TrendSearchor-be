@@ -40,4 +40,7 @@ public interface UserFollowRepository extends JpaRepository<UserFollow, Long> {
     void deleteByUserIdAndJournalId(Long userId, Long journalId);
 
     void deleteByUserIdAndTopicId(Long userId, Long topicId);
+
+    @Query("SELECT f.user.id FROM UserFollow f WHERE f.topic.id = :topicId")
+    java.util.List<Long> findUserIdsByTopicId(@Param("topicId") Long topicId);
 }

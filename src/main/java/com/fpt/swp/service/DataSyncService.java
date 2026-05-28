@@ -26,6 +26,8 @@ public class DataSyncService {
     private final ResearchTopicRepository topicRepository;
     private final PublicationTrendRepository trendRepository;
     private final ApiDataSourceRepository dataSourceRepository;
+    private final UserFollowRepository userFollowRepository;
+    private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
 
     private static final List<String> DEFAULT_KEYWORDS = List.of(
@@ -70,6 +72,20 @@ public class DataSyncService {
 
             updateTrendData(keyword);
             log.info("Sync completed for keyword: {}, papers saved: {}", keyword, fetched);
+            
+            if (fetched > 0) {
+                topicRepository.findByName(keyword).ifPresent(topic -> {
+                    java.util.List<Long> followerIds = userFollowRepository.findUserIdsByTopicId(topic.getId());
+                    if (!followerIds.isEmpty()) {
+                        notificationService.createBulkNotifications(
+                                followerIds,
+                                NotificationType.SYSTEM,
+                                "New Papers Available",
+                                "We found " + fetched + " new papers for topic: " + keyword
+                        );
+                    }
+                });
+            }
 
         } catch (Exception e) {
             log.error("Error syncing papers for keyword {}: {}", keyword, e.getMessage());

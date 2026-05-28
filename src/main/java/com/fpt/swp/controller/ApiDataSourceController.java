@@ -16,6 +16,7 @@ import java.util.List;
 public class ApiDataSourceController {
 
     private final ApiDataSourceService apiDataSourceService;
+    private final com.fpt.swp.service.DataSyncService dataSyncService;
 
     @GetMapping
     public ResponseEntity<List<ApiDataSourceDto>> getAllSources() {
@@ -41,5 +42,11 @@ public class ApiDataSourceController {
     public ResponseEntity<Void> deleteSource(@PathVariable Long id) {
         apiDataSourceService.deleteSource(id);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/sync-now")
+    public ResponseEntity<java.util.Map<String, String>> syncNow(@RequestParam(defaultValue = "10") int limit) {
+        dataSyncService.triggerFullSync(limit);
+        return ResponseEntity.ok(java.util.Map.of("message", "Sync started in background"));
     }
 }
