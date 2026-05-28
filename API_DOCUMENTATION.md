@@ -728,6 +728,34 @@ Manually trigger the data sync process (FR-07.2).
 }
 ```
 
+### 4.11 GET `/api/admin/api-sources/{id}/logs`
+
+Get a paginated list of sync logs for a specific data source (FR-07.3).
+
+**Query Params:**
+- `page` (default: 0)
+- `size` (default: 10)
+
+**Response `200 OK`:**
+```json
+{
+  "content": [
+    {
+      "id": 1,
+      "sourceId": 1,
+      "syncStartTime": "2024-05-28T02:00:00",
+      "syncEndTime": "2024-05-28T02:05:00",
+      "status": "SUCCESS",
+      "papersAdded": 150,
+      "errorMessage": null,
+      "createdAt": "2024-05-28T02:00:00"
+    }
+  ],
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
 ---
 
 ## 5. Report Endpoints (FR-06)

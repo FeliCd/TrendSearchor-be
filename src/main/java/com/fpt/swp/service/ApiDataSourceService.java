@@ -10,11 +10,17 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.fpt.swp.dto.SyncLogDto;
+import com.fpt.swp.repository.SyncLogRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 @Service
 @RequiredArgsConstructor
 public class ApiDataSourceService {
 
     private final ApiDataSourceRepository repository;
+    private final SyncLogRepository syncLogRepository;
 
     @Transactional(readOnly = true)
     public List<ApiDataSourceDto> getAllSources() {
@@ -63,6 +69,12 @@ public class ApiDataSourceService {
             throw new RuntimeException("API Data Source not found with id: " + id);
         }
         repository.deleteById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<SyncLogDto> getLogsForSource(Long sourceId, Pageable pageable) {
+        return syncLogRepository.findBySourceIdOrderByCreatedAtDesc(sourceId, pageable)
+                .map(SyncLogDto::fromEntity);
     }
 
     private ApiDataSourceDto mapToDto(ApiDataSource entity) {

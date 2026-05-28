@@ -30,6 +30,8 @@ public class DataSyncService {
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
 
+    private final SyncLogRepository syncLogRepository;
+
     private static final List<String> DEFAULT_KEYWORDS = List.of(
             "machine learning", "deep learning", "natural language processing",
             "computer vision", "neural network", "artificial intelligence",
@@ -40,7 +42,7 @@ public class DataSyncService {
 
     @Async
     @Transactional
-    public void syncPapersForKeyword(String keyword, int limit) {
+    public java.util.concurrent.CompletableFuture<Integer> syncPapersForKeyword(String keyword, int limit) {
         log.info("Starting sync for keyword: {}", keyword);
         int offset = 0;
         int fetched = 0;
@@ -88,8 +90,11 @@ public class DataSyncService {
                 });
             }
 
+
+            return java.util.concurrent.CompletableFuture.completedFuture(fetched);
         } catch (Exception e) {
             log.error("Error syncing papers for keyword {}: {}", keyword, e.getMessage());
+            return java.util.concurrent.CompletableFuture.completedFuture(0);
         }
     }
 
@@ -243,12 +248,37 @@ public class DataSyncService {
         ApiDataSource source = dataSourceRepository.findBySourceName("OPENALEX").orElse(null);
         if (source == null) return;
 
+        SyncLog syncLog = SyncLog.builder()
+                .source(source)
+                .syncStartTime(LocalDateTime.now())
+                .status(SyncStatus.FAILED)
+                .papersAdded(0)
+                .build();
+        syncLog = syncLogRepository.save(syncLog);
+
+        List<java.util.concurrent.CompletableFuture<Integer>> futures = new ArrayList<>();
         for (String keyword : DEFAULT_KEYWORDS) {
-            syncPapersForKeyword(keyword, papersPerKeyword);
+            futures.add(syncPapersForKeyword(keyword, papersPerKeyword));
         }
 
+        int totalFetched = 0;
+        try {
+            java.util.concurrent.CompletableFuture.allOf(futures.toArray(new java.util.concurrent.CompletableFuture[0])).join();
+            for (java.util.concurrent.CompletableFuture<Integer> future : futures) {
+                totalFetched += future.get();
+            }
+            syncLog.setStatus(SyncStatus.SUCCESS);
+        } catch (Exception e) {
+            syncLog.setErrorMessage(e.getMessage());
+            syncLog.setStatus(SyncStatus.FAILED);
+        }
+
+        syncLog.setPapersAdded(totalFetched);
+        syncLog.setSyncEndTime(LocalDateTime.now());
+        syncLogRepository.save(syncLog);
+
         source.setLastSyncAt(LocalDateTime.now());
-        source.setLastSyncStatus(SyncStatus.SUCCESS);
+        source.setLastSyncStatus(syncLog.getStatus());
         source.setRecordsSynced((int) paperRepository.count());
         dataSourceRepository.save(source);
     }

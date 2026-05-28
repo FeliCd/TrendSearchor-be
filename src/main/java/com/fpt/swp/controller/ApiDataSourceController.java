@@ -7,6 +7,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import com.fpt.swp.dto.SyncLogDto;
+
 import java.util.List;
 
 @RestController
@@ -48,5 +52,13 @@ public class ApiDataSourceController {
     public ResponseEntity<java.util.Map<String, String>> syncNow(@RequestParam(defaultValue = "10") int limit) {
         dataSyncService.triggerFullSync(limit);
         return ResponseEntity.ok(java.util.Map.of("message", "Sync started in background"));
+    }
+
+    @GetMapping("/{id}/logs")
+    public ResponseEntity<Page<SyncLogDto>> getLogs(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(apiDataSourceService.getLogsForSource(id, PageRequest.of(page, size)));
     }
 }
