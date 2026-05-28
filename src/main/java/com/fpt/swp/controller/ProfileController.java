@@ -68,4 +68,14 @@ public class ProfileController {
 
         return ResponseEntity.ok(UserResponse.fromUser(userRepository.save(user)));
     }
+
+    @PostMapping("/change-role")
+    public ResponseEntity<UserResponse> changeRole(@Valid @RequestBody com.fpt.swp.dto.UpdateRoleRequest req) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("User not found"));
+
+        user.setRole(req.getRole());
+        return ResponseEntity.ok(UserResponse.fromUser(userRepository.save(user)));
+    }
 }
