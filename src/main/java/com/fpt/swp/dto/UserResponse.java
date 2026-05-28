@@ -28,6 +28,7 @@ public class UserResponse {
     private UserStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime lastLogin;
+    private Boolean receiveNotifications;
 
     public static UserResponse fromUser(User user) {
         if (user == null) return null;
@@ -43,6 +44,7 @@ public class UserResponse {
                 .status(user.getStatus())
                 .createdAt(user.getCreatedAt())
                 .lastLogin(user.getLastLogin())
+                .receiveNotifications(user.getReceiveNotifications())
                 .build();
     }
 }

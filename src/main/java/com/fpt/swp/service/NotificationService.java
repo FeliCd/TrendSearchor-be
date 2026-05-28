@@ -24,7 +24,7 @@ public class NotificationService {
     @Transactional
     public Notification createNotification(Long userId, NotificationType type, String title, String message) {
         User user = userRepository.findById(userId).orElse(null);
-        if (user == null) return null;
+        if (user == null || Boolean.FALSE.equals(user.getReceiveNotifications())) return null;
 
         Notification notification = Notification.builder()
                 .user(user)

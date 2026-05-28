@@ -365,6 +365,30 @@ Authorization: Bearer <accessToken>
 
 ---
 
+### 3.7 PATCH `/api/profile/notification-settings`
+
+**Protected — Requires valid token.**
+
+Update notification preferences for the logged-in user.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `receiveNotifications` | boolean | ✅ | Set to `false` to turn off all notifications |
+
+**Request Example:**
+
+```json
+{
+  "receiveNotifications": false
+}
+```
+
+**Response `200 OK`:** Returns updated `UserResponse` including `receiveNotifications`.
+
+---
+
 ## 4. Admin User Management Endpoints
 
 All endpoints in this section require **`ADMIN` role**.

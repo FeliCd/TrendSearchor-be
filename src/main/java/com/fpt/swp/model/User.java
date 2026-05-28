@@ -63,6 +63,10 @@ public class User {
 
     private LocalDateTime lastLogin;
 
+    @Builder.Default
+    @Column(name = "receive_notifications")
+    private Boolean receiveNotifications = true;
+
     // ─── Lifecycle callbacks ───────────────────────────────────────────────────
     @PrePersist
     protected void onCreate() {

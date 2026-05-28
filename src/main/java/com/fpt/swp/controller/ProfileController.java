@@ -78,4 +78,16 @@ public class ProfileController {
         user.setRole(req.getRole());
         return ResponseEntity.ok(UserResponse.fromUser(userRepository.save(user)));
     }
+
+    @PatchMapping("/notification-settings")
+    public ResponseEntity<UserResponse> updateNotificationSettings(@RequestBody java.util.Map<String, Boolean> request) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("User not found"));
+
+        if (request.containsKey("receiveNotifications")) {
+            user.setReceiveNotifications(request.get("receiveNotifications"));
+        }
+        return ResponseEntity.ok(UserResponse.fromUser(userRepository.save(user)));
+    }
 }
