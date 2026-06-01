@@ -16,17 +16,17 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class CreateUserRequest {
 
-    @NotBlank(message = "Username is required")
-    @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
-    private String username;
+    @NotBlank(message = "Email is required")
+    @Email(message = "Invalid email format")
+    private String mail;
 
     @NotBlank(message = "Password is required")
     @Pattern(regexp = AppConstants.PASSWORD_PATTERN, message = AppConstants.MSG_PASSWORD_INVALID)
     private String password;
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
-    private String mail;
+    @NotBlank(message = "Full name is required")
+    @Size(min = 3, message = "Full name must be at least 3 characters")
+    private String fullName;
 
     @NotNull(message = "Role is required")
     private Role role;
@@ -42,4 +42,7 @@ public class CreateUserRequest {
     private Gender gender;
 
     private String workplace;
+
+    @Size(max = 500, message = "Avatar URL must be at most 500 characters")
+    private String avatarUrl;
 }

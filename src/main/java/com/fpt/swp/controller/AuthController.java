@@ -19,10 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.DisabledException;
-import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -51,7 +48,6 @@ public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
-    private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -59,14 +55,12 @@ public class AuthController {
     private final LoginRateLimiter loginRateLimiter;
     private final EmailService emailService;
 
-    public AuthController(AuthenticationManager authenticationManager,
-                          JwtTokenProvider jwtTokenProvider,
+    public AuthController(JwtTokenProvider jwtTokenProvider,
                           UserRepository userRepository,
                           PasswordEncoder passwordEncoder,
                           InvalidatedTokenRepository invalidatedTokenRepository,
                           LoginRateLimiter loginRateLimiter,
                           EmailService emailService) {
-        this.authenticationManager = authenticationManager;
         this.jwtTokenProvider = jwtTokenProvider;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -80,59 +74,49 @@ public class AuthController {
     // ─────────────────────────────────────────────
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
-        String username = loginRequest.getUsername();
-        log.info("[AUTH] Login attempt for username: {}", username);
-        log.debug("[AUTH] Origin: {}", /* TODO: get from request if needed */ "N/A");
+        String email = loginRequest.getEmail();
+        log.info("[AUTH] Login attempt for email: {}", email);
 
-        // Rate limiting – kiểm tra lockout
-        if (loginRateLimiter.isLockedOut(username)) {
-            long remainingMs = loginRateLimiter.getRemainingLockoutTime(username);
+        if (loginRateLimiter.isLockedOut(email)) {
+            long remainingMs = loginRateLimiter.getRemainingLockoutTime(email);
             long minutes = remainingMs / 60_000;
-            log.warn("[AUTH] Login LOCKED OUT for username: {}, remaining: {} minutes", username, minutes);
+            log.warn("[AUTH] Login LOCKED OUT for email: {}, remaining: {} minutes", email, minutes);
             throw new RateLimitExceededException(
                     "Account temporarily locked due to too many failed attempts. Try again in " + minutes + " minutes.");
         }
 
-        try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(username, loginRequest.getPassword())
-            );
+        User user = userRepository.findByMail(email).orElse(null);
+        if (user == null) {
+            loginRateLimiter.recordFailedAttempt(email);
+            log.warn("[AUTH] Login FAILED – email not found: {}", email);
+            throw new BadCredentialsException("Invalid email or password.");
+        }
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            // Kiểm tra user status sau khi authenticate thành công
-            User user = userRepository.findByUsername(username)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-
-            checkUserStatus(user);
-
-            // Cập nhật lastLogin
-            user.setLastLogin(LocalDateTime.now());
-            userRepository.save(user);
-
-            // Reset rate limit
-            loginRateLimiter.recordSuccessfulLogin(username);
-
-            String token = jwtTokenProvider.generateToken(authentication);
-            log.info("[AUTH] Login SUCCESS for username: {}", username);
-
-            return ResponseEntity.ok(new JwtAuthResponse(token, UserResponse.fromUser(user)));
-
-        } catch (BadCredentialsException | DisabledException | LockedException e) {
-            loginRateLimiter.recordFailedAttempt(username);
-            int remaining = loginRateLimiter.getRemainingAttempts(username);
-            log.warn("[AUTH] Login FAILED for username: {}, attempts remaining: {}, error: {}",
-                    username, remaining, e.getClass().getSimpleName());
+        if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
+            loginRateLimiter.recordFailedAttempt(email);
+            int remaining = loginRateLimiter.getRemainingAttempts(email);
+            log.warn("[AUTH] Login FAILED for email: {}, attempts remaining: {}", email, remaining);
             if (remaining > 0) {
                 throw new BadCredentialsException(
-                        "Invalid username or password. " + remaining + " attempts remaining.");
+                        "Invalid email or password. " + remaining + " attempts remaining.");
             }
             throw new RateLimitExceededException(
                     "Too many failed attempts. Account is temporarily locked for 15 minutes.");
-        } catch (Exception e) {
-            log.error("[AUTH] Login ERROR for username: {}, exception: {}", username, e.getClass().getSimpleName(), e);
-            throw e;
         }
+
+        checkUserStatus(user);
+
+        user.setLastLogin(LocalDateTime.now());
+        userRepository.save(user);
+
+        loginRateLimiter.recordSuccessfulLogin(email);
+
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                user.getMail(), null, java.util.Collections.emptyList());
+        String token = jwtTokenProvider.generateToken(authentication);
+        log.info("[AUTH] Login SUCCESS for email: {}", email);
+
+        return ResponseEntity.ok(new JwtAuthResponse(token, UserResponse.fromUser(user)));
     }
 
     // ─────────────────────────────────────────────
@@ -145,18 +129,13 @@ public class AuthController {
                     Map.of("role", "Invalid role selected. Only STUDENT or RESEARCHER are allowed."));
         }
 
-        if (userRepository.existsByUsername(req.getUsername())) {
-            return ResponseEntity.badRequest().body(
-                    Map.of("username", "Username is already taken"));
-        }
-
         if (userRepository.existsByMail(req.getMail())) {
             return ResponseEntity.badRequest().body(
-                    Map.of("mail", "Email is already taken"));
+                    Map.of("mail", "Email already exists in the system."));
         }
 
         User user = User.builder()
-                .username(req.getUsername())
+                .fullName(req.getFullName())
                 .password(passwordEncoder.encode(req.getPassword()))
                 .dob(req.getDob())
                 .mail(req.getMail())
@@ -179,8 +158,8 @@ public class AuthController {
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<UserResponse> getCurrentUser() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByUsername(username)
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByMail(email)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("User not found"));
 
         return ResponseEntity.ok(UserResponse.fromUser(user));
@@ -219,13 +198,8 @@ public class AuthController {
     @PostMapping("/change-password")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
-        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            return ResponseEntity.badRequest().body(
-                    Map.of("confirmPassword", "Passwords do not match"));
-        }
-
-        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByUsername(currentUsername)
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByMail(email)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("User not found"));
 
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
@@ -246,7 +220,6 @@ public class AuthController {
     public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         User user = userRepository.findByMail(request.getMail()).orElse(null);
 
-        // Không tiết lộ user có tồn tại hay không
         if (user == null) {
             return ResponseEntity.ok(ApiResponse.of(
                     "If the email exists, a new password will be sent to it."));
@@ -256,7 +229,6 @@ public class AuthController {
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
-        // Gửi email thực sự thay vì trả về response
         emailService.sendPasswordReset(user.getMail(), newPassword);
 
         return ResponseEntity.ok(ApiResponse.of(

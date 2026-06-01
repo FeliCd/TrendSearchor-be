@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class UserResponse {
     private Long id;
-    private String username;
+    private String fullName;
     private String mail;
     private LocalDate dob;
     private String phone;
@@ -29,12 +29,13 @@ public class UserResponse {
     private LocalDateTime createdAt;
     private LocalDateTime lastLogin;
     private Boolean receiveNotifications;
+    private String avatarUrl;
 
     public static UserResponse fromUser(User user) {
         if (user == null) return null;
         return UserResponse.builder()
                 .id(user.getId())
-                .username(user.getUsername())
+                .fullName(user.getFullName())
                 .mail(user.getMail())
                 .dob(user.getDob())
                 .phone(user.getPhone())
@@ -45,6 +46,7 @@ public class UserResponse {
                 .createdAt(user.getCreatedAt())
                 .lastLogin(user.getLastLogin())
                 .receiveNotifications(user.getReceiveNotifications())
+                .avatarUrl(user.getAvatarUrl())
                 .build();
     }
 }

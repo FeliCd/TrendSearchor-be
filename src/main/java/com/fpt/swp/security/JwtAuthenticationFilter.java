@@ -27,8 +27,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final InvalidatedTokenRepository invalidatedTokenRepository;
 
     public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
-                                   CustomUserDetailsService customUserDetailsService,
-                                   InvalidatedTokenRepository invalidatedTokenRepository) {
+                                  CustomUserDetailsService customUserDetailsService,
+                                  InvalidatedTokenRepository invalidatedTokenRepository) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.customUserDetailsService = customUserDetailsService;
         this.invalidatedTokenRepository = invalidatedTokenRepository;
@@ -42,13 +42,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String origin = request.getHeader("Origin");
         log.debug("[JWT-FILTER] Request: {} {}, Origin: {}", request.getMethod(), request.getRequestURI(), origin);
 
-        // Get JWT token from HTTP request
         String token = getTokenFromRequest(request);
 
-        // Validate token chữ ký & hạn sử dụng
         if (StringUtils.hasText(token) && jwtTokenProvider.validateToken(token)) {
 
-            // FR-01.3: Từ chối token đã bị invalidate (blacklist)
             String jti = jwtTokenProvider.getJti(token);
             if (invalidatedTokenRepository.existsByJti(jti)) {
                 log.debug("[JWT-FILTER] Token {} is invalidated, skipping auth", jti);
@@ -56,12 +53,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // Get username from token
-            String username = jwtTokenProvider.getUsername(token);
-            log.debug("[JWT-FILTER] Token valid for user: {}", username);
+            String email = jwtTokenProvider.getSubject(token);
+            log.debug("[JWT-FILTER] Token valid for email: {}", email);
 
-            // Load user associated with token
-            UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
+            UserDetails userDetails = customUserDetailsService.loadUserByMail(email);
 
             UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
                     userDetails,
@@ -72,7 +67,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-            log.debug("[JWT-FILTER] Authentication set for user: {}", username);
+            log.debug("[JWT-FILTER] Authentication set for email: {}", email);
         } else {
             log.debug("[JWT-FILTER] No valid token found, continuing without auth");
         }

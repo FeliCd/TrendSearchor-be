@@ -20,69 +20,68 @@ public class LoginRateLimiter {
     private final ConcurrentHashMap<String, Long> lockouts = new ConcurrentHashMap<>();
 
     /**
-     * Kiểm tra xem username có bị lockout không.
+     * Checks if an identifier (email) is locked out.
      *
-     * @param username username cần kiểm tra
-     * @return true nếu bị lockout
+     * @param identifier email used as lockout key
+     * @return true if locked out
      */
-    public boolean isLockedOut(String username) {
-        Long lockoutTime = lockouts.get(username);
+    public boolean isLockedOut(String identifier) {
+        Long lockoutTime = lockouts.get(identifier);
         if (lockoutTime == null) return false;
 
         if (System.currentTimeMillis() > lockoutTime) {
-            // Lockout đã hết hạn, clear
-            lockouts.remove(username);
-            attempts.remove(username);
+            lockouts.remove(identifier);
+            attempts.remove(identifier);
             return false;
         }
         return true;
     }
 
     /**
-     * Ghi nhận một login thất bại. Tăng số lần thử.
-     * Nếu đạt MAX_ATTEMPTS, lockout username trong LOCKOUT_DURATION_MS.
+     * Records a failed login attempt. Increments attempt counter.
+     * Locks out the identifier after MAX_ATTEMPTS failures.
      *
-     * @param username username bị failed attempt
+     * @param identifier email of the failed attempt
      */
-    public void recordFailedAttempt(String username) {
-        AtomicInteger count = attempts.computeIfAbsent(username, k -> new AtomicInteger(0));
+    public void recordFailedAttempt(String identifier) {
+        AtomicInteger count = attempts.computeIfAbsent(identifier, k -> new AtomicInteger(0));
         int failed = count.incrementAndGet();
 
         if (failed >= MAX_ATTEMPTS) {
-            lockouts.put(username, System.currentTimeMillis() + LOCKOUT_DURATION_MS);
-            attempts.remove(username);
+            lockouts.put(identifier, System.currentTimeMillis() + LOCKOUT_DURATION_MS);
+            attempts.remove(identifier);
         }
     }
 
     /**
-     * Reset số lần thử khi login thành công.
+     * Resets attempt counter on successful login.
      *
-     * @param username username được reset
+     * @param identifier email that logged in successfully
      */
-    public void recordSuccessfulLogin(String username) {
-        attempts.remove(username);
-        lockouts.remove(username);
+    public void recordSuccessfulLogin(String identifier) {
+        attempts.remove(identifier);
+        lockouts.remove(identifier);
     }
 
     /**
-     * Lấy số lần thử còn lại trước khi lockout.
+     * Returns remaining attempts before lockout.
      *
-     * @param username username
-     * @return số lần thử còn lại
+     * @param identifier email
+     * @return remaining attempts
      */
-    public int getRemainingAttempts(String username) {
-        AtomicInteger count = attempts.get(username);
+    public int getRemainingAttempts(String identifier) {
+        AtomicInteger count = attempts.get(identifier);
         return count == null ? MAX_ATTEMPTS : Math.max(0, MAX_ATTEMPTS - count.get());
     }
 
     /**
-     * Lấy thời gian lockout còn lại (milliseconds).
+     * Returns remaining lockout time in milliseconds.
      *
-     * @param username username
-     * @return milliseconds còn lại, hoặc 0 nếu không bị lockout
+     * @param identifier email
+     * @return milliseconds remaining, or 0 if not locked out
      */
-    public long getRemainingLockoutTime(String username) {
-        Long lockoutTime = lockouts.get(username);
+    public long getRemainingLockoutTime(String identifier) {
+        Long lockoutTime = lockouts.get(identifier);
         if (lockoutTime == null) return 0;
         long remaining = lockoutTime - System.currentTimeMillis();
         return remaining > 0 ? remaining : 0;

@@ -15,26 +15,27 @@ import java.time.LocalDate;
 @NoArgsConstructor
 public class RegisterRequest {
 
-    @NotBlank(message = "Username is required")
-    @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
-    private String username;
-
-    @NotBlank(message = "Password is required")
-    @Pattern(regexp = AppConstants.PASSWORD_PATTERN, message = AppConstants.MSG_PASSWORD_INVALID)
-    private String password;
-
-
-    @NotNull(message = "Date of birth is required")
-    @ValidDob
-    private LocalDate dob;
+    @NotBlank(message = "Full name is required")
+    @Size(min = 3, message = "Full name must be at least 3 characters")
+    private String fullName;
 
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
     private String mail;
 
+    @NotBlank(message = "Password is required")
+    @Pattern(regexp = AppConstants.PASSWORD_PATTERN, message = AppConstants.MSG_PASSWORD_INVALID)
+    private String password;
+
+    private String confirmPassword;
+
     @NotBlank(message = "Phone number is required")
     @Pattern(regexp = AppConstants.PHONE_PATTERN, message = AppConstants.MSG_PHONE_INVALID)
     private String phone;
+
+    @NotNull(message = "Date of birth is required")
+    @ValidDob
+    private LocalDate dob;
 
     @NotNull(message = "Gender is required")
     private Gender gender;

@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Entity
 @Table(name = "users", indexes = {
-        @Index(name = "idx_users_username", columnList = "username"),
         @Index(name = "idx_users_mail", columnList = "mail"),
         @Index(name = "idx_users_role_status", columnList = "role, status")
 })
@@ -25,11 +24,11 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
-    private String username;
-
     @Column(nullable = false)
     private String password;
+
+    @Column(length = 200)
+    private String fullName;
 
     private LocalDate dob;
 
@@ -70,6 +69,9 @@ public class User {
     @Builder.Default
     @Column(name = "builtin", nullable = false)
     private Boolean builtin = false;
+
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
 
     // ─── Lifecycle callbacks ───────────────────────────────────────────────────
     @PrePersist

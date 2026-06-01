@@ -16,14 +16,13 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class UpdateUserRequest {
 
-    @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
-    private String username;
+    @Email(message = "Invalid email format")
+    private String mail;
 
     @Pattern(regexp = AppConstants.PASSWORD_PATTERN, message = AppConstants.MSG_PASSWORD_INVALID)
     private String password;
 
-    @Email(message = "Invalid email format")
-    private String mail;
+    private String fullName;
 
     private Role role;
     private UserStatus status;
@@ -31,9 +30,12 @@ public class UpdateUserRequest {
     @ValidDob
     private LocalDate dob;
 
-    @Pattern(regexp = AppConstants.PHONE_PATTERN, message = AppConstants.MSG_PHONE_INVALID)
+    @Pattern(regexp = "^$|" + AppConstants.PHONE_PATTERN, message = AppConstants.MSG_PHONE_INVALID)
     private String phone;
 
     private Gender gender;
     private String workplace;
+
+    @Size(max = 500, message = "Avatar URL must be at most 500 characters")
+    private String avatarUrl;
 }

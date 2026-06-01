@@ -43,20 +43,20 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(Authentication authentication) {
-        String username = authentication.getName();
+        String subject = authentication.getName();
         Date now = new Date();
         Date expiry = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
                 .id(UUID.randomUUID().toString())
-                .subject(username)
+                .subject(subject)
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(secretKey)
                 .compact();
     }
 
-    public String getUsername(String token) {
+    public String getSubject(String token) {
         return parseClaims(token).getSubject();
     }
 

@@ -1,8 +1,7 @@
 package com.fpt.swp.security;
 
-import com.fpt.swp.model.User;
-import com.fpt.swp.model.UserStatus;
 import com.fpt.swp.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -20,23 +19,26 @@ public class CustomUserDetailsService implements UserDetailsService {
         this.userRepository = userRepository;
     }
 
-    @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+    public UserDetails loadUserByMail(String mail) throws UsernameNotFoundException {
+        var user = userRepository.findByMail(mail)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + mail));
 
-        // Không cho phép user không active đăng nhập
-        if (user.getStatus() == UserStatus.INACTIVE) {
-            throw new UsernameNotFoundException("Account is inactive: " + username);
+        if (user.getStatus() == com.fpt.swp.model.UserStatus.INACTIVE) {
+            throw new UsernameNotFoundException("Account is inactive: " + mail);
         }
-        if (user.getStatus() == UserStatus.SUSPENDED) {
-            throw new UsernameNotFoundException("Account is suspended: " + username);
+        if (user.getStatus() == com.fpt.swp.model.UserStatus.SUSPENDED) {
+            throw new UsernameNotFoundException("Account is suspended: " + mail);
         }
 
         return new org.springframework.security.core.userdetails.User(
-                user.getUsername(),
+                user.getMail(),
                 user.getPassword(),
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
         );
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String identifier) throws UsernameNotFoundException {
+        return loadUserByMail(identifier);
     }
 }

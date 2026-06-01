@@ -5,7 +5,6 @@ import com.fpt.swp.model.SearchType;
 import com.fpt.swp.model.User;
 import com.fpt.swp.repository.RecentSearchRepository;
 import com.fpt.swp.repository.UserRepository;
-import com.fpt.swp.service.UserService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -88,7 +87,7 @@ public class RecentSearchController {
     }
 
     private Long getUserId(UserDetails userDetails) {
-        User user = userRepository.findByUsername(userDetails.getUsername())
+        User user = userRepository.findByMail(userDetails.getUsername())
                 .orElseThrow(() -> new EntityNotFoundException("User not found"));
         return user.getId();
     }

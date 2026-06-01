@@ -59,16 +59,13 @@ public class UserService {
 
     // ─── 3.3 POST /api/admin/users — Create ────────────────────────────────
     public UserResponse createUser(CreateUserRequest req) {
-        if (userRepository.existsByUsername(req.getUsername())) {
-            throw new IllegalArgumentException("Username already taken!");
-        }
         if (userRepository.existsByMail(req.getMail())) {
             throw new IllegalArgumentException("Email already taken!");
         }
 
         User user = User.builder()
-                .username(req.getUsername())
                 .password(passwordEncoder.encode(req.getPassword()))
+                .fullName(req.getFullName())
                 .mail(req.getMail())
                 .role(req.getRole())
                 .status(req.getStatus() != null ? req.getStatus() : UserStatus.ACTIVE)
@@ -76,6 +73,7 @@ public class UserService {
                 .phone(req.getPhone())
                 .gender(req.getGender())
                 .workplace(req.getWorkplace())
+                .avatarUrl(req.getAvatarUrl())
                 .build();
 
         return UserResponse.fromUser(userRepository.save(user));
@@ -86,12 +84,6 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
 
-        if (req.getUsername() != null && !req.getUsername().equals(user.getUsername())) {
-            if (userRepository.existsByUsername(req.getUsername())) {
-                throw new IllegalArgumentException("Username already taken!");
-            }
-            user.setUsername(req.getUsername());
-        }
         if (req.getMail() != null && !req.getMail().equals(user.getMail())) {
             if (userRepository.existsByMail(req.getMail())) {
                 throw new IllegalArgumentException("Email already taken!");
@@ -101,12 +93,14 @@ public class UserService {
         if (req.getPassword() != null) {
             user.setPassword(passwordEncoder.encode(req.getPassword()));
         }
+        if (req.getFullName() != null) user.setFullName(req.getFullName());
         if (req.getRole() != null) user.setRole(req.getRole());
         if (req.getStatus() != null) user.setStatus(req.getStatus());
         if (req.getDob() != null) user.setDob(req.getDob());
         if (req.getPhone() != null) user.setPhone(req.getPhone());
         if (req.getGender() != null) user.setGender(req.getGender());
         if (req.getWorkplace() != null) user.setWorkplace(req.getWorkplace());
+        if (req.getAvatarUrl() != null) user.setAvatarUrl(req.getAvatarUrl());
 
         return UserResponse.fromUser(userRepository.save(user));
     }
@@ -162,7 +156,7 @@ public class UserService {
             spec = spec.and((root, query, cb) -> {
                 query.distinct(true);
                 return cb.or(
-                        cb.like(cb.lower(root.get("username")), pattern),
+                        cb.like(cb.lower(root.get("fullName")), pattern),
                         cb.like(cb.lower(root.get("mail")), pattern)
                 );
             });

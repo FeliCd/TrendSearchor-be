@@ -18,17 +18,14 @@ public class DataInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Value("${admin.username:admin}")
-    private String adminUsername;
+    @Value("${admin.mail:admin@mail.com}")
+    private String adminMail;
 
-    @Value("${admin.password:admin}")
+    @Value("${admin.password:1}")
     private String adminPassword;
 
     @Value("${admin.dob:2000-01-01}")
     private String adminDob;
-
-    @Value("${admin.mail:admin@system.com}")
-    private String adminMail;
 
     @Value("${admin.phone:0123456789}")
     private String adminPhone;
@@ -39,6 +36,9 @@ public class DataInitializer implements CommandLineRunner {
     @Value("${admin.workplace:System}")
     private String adminWorkplace;
 
+    @Value("${admin.fullName:Administrator}")
+    private String adminFullName;
+
     public DataInitializer(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -46,16 +46,16 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        String uName = adminUsername != null ? adminUsername.trim() : "admin";
-        String uPass = adminPassword != null ? adminPassword.trim() : "admin";
-        String uMail = adminMail != null ? adminMail.trim() : "admin@system.com";
+        String email = adminMail != null ? adminMail.trim() : "admin@mail.com";
+        String password = adminPassword != null ? adminPassword.trim() : "1";
+        String fullName = adminFullName != null ? adminFullName.trim() : "Administrator";
 
-        if (!userRepository.existsByUsername(uName) && !userRepository.existsByMail(uMail)) {
+        if (!userRepository.existsByMail(email)) {
             User admin = User.builder()
-                    .username(uName)
-                    .password(passwordEncoder.encode(uPass))
+                    .mail(email)
+                    .password(passwordEncoder.encode(password))
+                    .fullName(fullName)
                     .dob(LocalDate.parse(adminDob))
-                    .mail(uMail)
                     .phone(adminPhone)
                     .gender(Gender.valueOf(adminGender.toUpperCase()))
                     .workplace(adminWorkplace)
@@ -64,9 +64,9 @@ public class DataInitializer implements CommandLineRunner {
                     .builtin(true)
                     .build();
             userRepository.save(admin);
-            System.out.println("Default Admin user created successfully.");
+            System.out.println("Default Admin user created: " + email + " / " + password);
         } else {
-            System.out.println("Admin user already exists or email is taken.");
+            System.out.println("Admin user already exists.");
         }
     }
 }
