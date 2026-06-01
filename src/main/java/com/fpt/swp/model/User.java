@@ -67,6 +67,10 @@ public class User {
     @Column(name = "receive_notifications")
     private Boolean receiveNotifications = true;
 
+    @Builder.Default
+    @Column(name = "builtin", nullable = false)
+    private Boolean builtin = false;
+
     // ─── Lifecycle callbacks ───────────────────────────────────────────────────
     @PrePersist
     protected void onCreate() {

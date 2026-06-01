@@ -116,6 +116,10 @@ public class UserService {
         if (!userRepository.existsById(id)) {
             throw new EntityNotFoundException("User not found with id: " + id);
         }
+        User user = userRepository.findById(id).orElseThrow();
+        if (Boolean.TRUE.equals(user.getBuiltin())) {
+            throw new IllegalArgumentException("Cannot delete built-in system account.");
+        }
         userRepository.deleteById(id);
     }
 

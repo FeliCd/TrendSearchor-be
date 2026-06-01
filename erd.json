@@ -1,0 +1,281 @@
+{
+  "project": "TrendSearchor-be",
+  "entities": [
+    {
+      "name": "ApiDataSource",
+      "table": "api_data_sources",
+      "fields": [
+        {"name": "id", "type": "Long", "isPrimaryKey": true},
+        {"name": "sourceName", "type": "String", "length": 100},
+        {"name": "baseUrl", "type": "String", "length": 500},
+        {"name": "apiKey", "type": "String", "length": 500},
+        {"name": "rateLimitPerDay", "type": "Integer"},
+        {"name": "isActive", "type": "Boolean"},
+        {"name": "lastSyncAt", "type": "LocalDateTime"},
+        {"name": "lastSyncStatus", "type": "Enum(SyncStatus)"},
+        {"name": "recordsSynced", "type": "Integer"},
+        {"name": "createdAt", "type": "LocalDateTime"},
+        {"name": "updatedAt", "type": "LocalDateTime"}
+      ]
+    },
+    {
+      "name": "Author",
+      "table": "authors",
+      "fields": [
+        {"name": "id", "type": "Long", "isPrimaryKey": true},
+        {"name": "externalId", "type": "String"},
+        {"name": "name", "type": "String", "length": 500},
+        {"name": "orcid", "type": "String", "length": 50},
+        {"name": "hIndex", "type": "Integer"},
+        {"name": "paperCount", "type": "Integer"},
+        {"name": "createdAt", "type": "LocalDateTime"},
+        {"name": "updatedAt", "type": "LocalDateTime"}
+      ]
+    },
+    {
+      "name": "Bookmark",
+      "table": "bookmarks",
+      "fields": [
+        {"name": "id", "type": "Long", "isPrimaryKey": true},
+        {"name": "userId", "type": "Long", "isForeignKey": true, "reference": "User.id"},
+        {"name": "paperId", "type": "Long", "isForeignKey": true, "reference": "ResearchPaper.id"},
+        {"name": "keywordId", "type": "Long", "isForeignKey": true, "reference": "Keyword.id"},
+        {"name": "bookmarkType", "type": "Enum(BookmarkType)"},
+        {"name": "createdAt", "type": "LocalDateTime"}
+      ]
+    },
+    {
+      "name": "DashboardReport",
+      "table": "dashboard_reports",
+      "fields": [
+        {"name": "id", "type": "Long", "isPrimaryKey": true},
+        {"name": "userId", "type": "Long", "isForeignKey": true, "reference": "User.id"},
+        {"name": "reportType", "type": "Enum(ReportType)"},
+        {"name": "title", "type": "String", "length": 500},
+        {"name": "content", "type": "JSON"},
+        {"name": "parameters", "type": "JSON"},
+        {"name": "createdAt", "type": "LocalDateTime"}
+      ]
+    },
+    {
+      "name": "InvalidatedToken",
+      "table": "invalidated_tokens",
+      "fields": [
+        {"name": "jti", "type": "String", "length": 36, "isPrimaryKey": true},
+        {"name": "expiresAt", "type": "Instant"}
+      ]
+    },
+    {
+      "name": "Journal",
+      "table": "journals",
+      "fields": [
+        {"name": "id", "type": "Long", "isPrimaryKey": true},
+        {"name": "externalId", "type": "String"},
+        {"name": "name", "type": "String", "length": 500},
+        {"name": "publisher", "type": "String", "length": 500},
+        {"name": "issn", "type": "String", "length": 20},
+        {"name": "country", "type": "String", "length": 100},
+        {"name": "homepageUrl", "type": "String", "length": 500},
+        {"name": "createdAt", "type": "LocalDateTime"},
+        {"name": "updatedAt", "type": "LocalDateTime"}
+      ]
+    },
+    {
+      "name": "Keyword",
+      "table": "keywords",
+      "fields": [
+        {"name": "id", "type": "Long", "isPrimaryKey": true},
+        {"name": "name", "type": "String", "length": 255},
+        {"name": "displayName", "type": "String", "length": 255},
+        {"name": "createdAt", "type": "LocalDateTime"}
+      ]
+    },
+    {
+      "name": "Notification",
+      "table": "notifications",
+      "fields": [
+        {"name": "id", "type": "Long", "isPrimaryKey": true},
+        {"name": "userId", "type": "Long", "isForeignKey": true, "reference": "User.id"},
+        {"name": "notificationType", "type": "Enum(NotificationType)"},
+        {"name": "title", "type": "String", "length": 500},
+        {"name": "message", "type": "Text"},
+        {"name": "referenceId", "type": "Long"},
+        {"name": "isRead", "type": "Boolean"},
+        {"name": "createdAt", "type": "LocalDateTime"}
+      ]
+    },
+    {
+      "name": "PublicationTrend",
+      "table": "publication_trends",
+      "fields": [
+        {"name": "id", "type": "Long", "isPrimaryKey": true},
+        {"name": "keywordName", "type": "String", "length": 255},
+        {"name": "year", "type": "Integer"},
+        {"name": "month", "type": "Integer"},
+        {"name": "paperCount", "type": "Integer"},
+        {"name": "citationCount", "type": "Integer"},
+        {"name": "avgCitations", "type": "Double"},
+        {"name": "createdAt", "type": "LocalDateTime"}
+      ]
+    },
+    {
+      "name": "RecentSearch",
+      "table": "recent_searches",
+      "fields": [
+        {"name": "id", "type": "Long", "isPrimaryKey": true},
+        {"name": "userId", "type": "Long", "isForeignKey": true, "reference": "User.id"},
+        {"name": "searchQuery", "type": "String", "length": 500},
+        {"name": "searchType", "type": "Enum(SearchType)"},
+        {"name": "createdAt", "type": "LocalDateTime"}
+      ]
+    },
+    {
+      "name": "ResearchPaper",
+      "table": "research_papers",
+      "fields": [
+        {"name": "id", "type": "Long", "isPrimaryKey": true},
+        {"name": "externalId", "type": "String"},
+        {"name": "title", "type": "String", "length": 1000},
+        {"name": "abstractText", "type": "Text"},
+        {"name": "year", "type": "Integer"},
+        {"name": "citationCount", "type": "Integer"},
+        {"name": "openAccess", "type": "Boolean"},
+        {"name": "paperUri", "type": "String", "length": 500},
+        {"name": "createdAt", "type": "LocalDateTime"},
+        {"name": "updatedAt", "type": "LocalDateTime"}
+      ]
+    },
+    {
+      "name": "ResearchTopic",
+      "table": "research_topics",
+      "fields": [
+        {"name": "id", "type": "Long", "isPrimaryKey": true},
+        {"name": "name", "type": "String", "length": 255},
+        {"name": "description", "type": "Text"},
+        {"name": "category", "type": "String", "length": 255},
+        {"name": "popularityScore", "type": "Double"},
+        {"name": "createdAt", "type": "LocalDateTime"},
+        {"name": "updatedAt", "type": "LocalDateTime"}
+      ]
+    },
+    {
+      "name": "User",
+      "table": "users",
+      "fields": [
+        {"name": "id", "type": "Long", "isPrimaryKey": true},
+        {"name": "username", "type": "String", "length": 50},
+        {"name": "password", "type": "String"},
+        {"name": "dob", "type": "LocalDate"},
+        {"name": "mail", "type": "String", "length": 100},
+        {"name": "phone", "type": "String", "length": 20},
+        {"name": "gender", "type": "Enum(Gender)"},
+        {"name": "workplace", "type": "String", "length": 200},
+        {"name": "role", "type": "Enum(Role)"},
+        {"name": "status", "type": "Enum(UserStatus)"},
+        {"name": "createdAt", "type": "LocalDateTime"},
+        {"name": "updatedAt", "type": "LocalDateTime"},
+        {"name": "lastLogin", "type": "LocalDateTime"}
+      ]
+    },
+    {
+      "name": "UserFollow",
+      "table": "user_follows",
+      "fields": [
+        {"name": "id", "type": "Long", "isPrimaryKey": true},
+        {"name": "userId", "type": "Long", "isForeignKey": true, "reference": "User.id"},
+        {"name": "journalId", "type": "Long", "isForeignKey": true, "reference": "Journal.id"},
+        {"name": "topicId", "type": "Long", "isForeignKey": true, "reference": "ResearchTopic.id"},
+        {"name": "followType", "type": "Enum(FollowType)"},
+        {"name": "createdAt", "type": "LocalDateTime"}
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "source": "Bookmark",
+      "target": "User",
+      "type": "ManyToOne",
+      "joinColumn": "user_id"
+    },
+    {
+      "source": "Bookmark",
+      "target": "ResearchPaper",
+      "type": "ManyToOne",
+      "joinColumn": "paper_id"
+    },
+    {
+      "source": "Bookmark",
+      "target": "Keyword",
+      "type": "ManyToOne",
+      "joinColumn": "keyword_id"
+    },
+    {
+      "source": "DashboardReport",
+      "target": "User",
+      "type": "ManyToOne",
+      "joinColumn": "user_id"
+    },
+    {
+      "source": "Notification",
+      "target": "User",
+      "type": "ManyToOne",
+      "joinColumn": "user_id"
+    },
+    {
+      "source": "RecentSearch",
+      "target": "User",
+      "type": "ManyToOne",
+      "joinColumn": "user_id"
+    },
+    {
+      "source": "ResearchPaper",
+      "target": "Journal",
+      "type": "ManyToMany",
+      "joinTable": "paper_journals",
+      "joinColumn": "paper_id",
+      "inverseJoinColumn": "journal_id"
+    },
+    {
+      "source": "ResearchPaper",
+      "target": "Author",
+      "type": "ManyToMany",
+      "joinTable": "paper_authors",
+      "joinColumn": "paper_id",
+      "inverseJoinColumn": "author_id"
+    },
+    {
+      "source": "ResearchPaper",
+      "target": "Keyword",
+      "type": "ManyToMany",
+      "joinTable": "paper_keywords",
+      "joinColumn": "paper_id",
+      "inverseJoinColumn": "keyword_id"
+    },
+    {
+      "source": "ResearchPaper",
+      "target": "ResearchTopic",
+      "type": "ManyToMany",
+      "joinTable": "paper_topics",
+      "joinColumn": "paper_id",
+      "inverseJoinColumn": "topic_id"
+    },
+    {
+      "source": "UserFollow",
+      "target": "User",
+      "type": "ManyToOne",
+      "joinColumn": "user_id"
+    },
+    {
+      "source": "UserFollow",
+      "target": "Journal",
+      "type": "ManyToOne",
+      "joinColumn": "journal_id"
+    },
+    {
+      "source": "UserFollow",
+      "target": "ResearchTopic",
+      "type": "ManyToOne",
+      "joinColumn": "topic_id"
+    }
+  ]
+}

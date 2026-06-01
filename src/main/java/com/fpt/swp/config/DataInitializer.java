@@ -61,6 +61,7 @@ public class DataInitializer implements CommandLineRunner {
                     .workplace(adminWorkplace)
                     .role(Role.ADMIN)
                     .status(UserStatus.ACTIVE)
+                    .builtin(true)
                     .build();
             userRepository.save(admin);
             System.out.println("Default Admin user created successfully.");
