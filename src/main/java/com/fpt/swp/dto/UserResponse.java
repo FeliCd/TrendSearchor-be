@@ -30,6 +30,7 @@ public class UserResponse {
     private LocalDateTime lastLogin;
     private Boolean receiveNotifications;
     private String avatarUrl;
+    private Boolean mustChangePassword;
 
     public static UserResponse fromUser(User user) {
         if (user == null) return null;
@@ -47,6 +48,7 @@ public class UserResponse {
                 .lastLogin(user.getLastLogin())
                 .receiveNotifications(user.getReceiveNotifications())
                 .avatarUrl(user.getAvatarUrl())
+                .mustChangePassword(user.getMustChangePassword())
                 .build();
     }
 }

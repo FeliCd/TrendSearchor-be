@@ -73,6 +73,14 @@ public class User {
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
+    @Builder.Default
+    @Column(name = "must_change_password", nullable = false)
+    private Boolean mustChangePassword = false;
+
+    @Builder.Default
+    @Column(name = "token_version", nullable = false)
+    private Integer tokenVersion = 0;
+
     // ─── Lifecycle callbacks ───────────────────────────────────────────────────
     @PrePersist
     protected void onCreate() {

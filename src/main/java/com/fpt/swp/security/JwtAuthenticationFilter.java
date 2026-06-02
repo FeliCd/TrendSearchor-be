@@ -1,6 +1,8 @@
 package com.fpt.swp.security;
 
+import com.fpt.swp.model.User;
 import com.fpt.swp.repository.InvalidatedTokenRepository;
+import com.fpt.swp.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,6 +18,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -25,13 +29,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService customUserDetailsService;
     private final InvalidatedTokenRepository invalidatedTokenRepository;
+    private final UserRepository userRepository;
 
     public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider,
                                   CustomUserDetailsService customUserDetailsService,
-                                  InvalidatedTokenRepository invalidatedTokenRepository) {
+                                  InvalidatedTokenRepository invalidatedTokenRepository,
+                                  UserRepository userRepository) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.customUserDetailsService = customUserDetailsService;
         this.invalidatedTokenRepository = invalidatedTokenRepository;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -54,6 +61,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
             String email = jwtTokenProvider.getSubject(token);
+            Integer tokenVersion = jwtTokenProvider.getTokenVersion(token);
+
+            if (tokenVersion != null) {
+                User user = userRepository.findByMail(email).orElse(null);
+                if (user != null) {
+                    Integer dbVersion = user.getTokenVersion();
+                    if (dbVersion != null && !dbVersion.equals(tokenVersion)) {
+                        log.warn("[JWT-FILTER] Token version mismatch for {}: token={}, db={}. Rejecting.",
+                                email, tokenVersion, dbVersion);
+                        sendUnauthorizedResponse(response, "Session invalidated. Please log in again.");
+                        return;
+                    }
+                }
+            }
+
             log.debug("[JWT-FILTER] Token valid for email: {}", email);
 
             UserDetails userDetails = customUserDetailsService.loadUserByMail(email);
@@ -73,6 +95,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", 401);
+        body.put("message", message);
+        body.put("code", "TOKEN_INVALIDATED");
+        response.getWriter().write(
+                "{\"status\":401,\"message\":\"" + message.replace("\"", "\\\"") + "\",\"code\":\"TOKEN_INVALIDATED\"}"
+        );
     }
 
     private String getTokenFromRequest(HttpServletRequest request) {

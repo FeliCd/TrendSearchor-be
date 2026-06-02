@@ -9,6 +9,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
@@ -19,12 +21,18 @@ import java.util.stream.Collectors;
 @Transactional
 public class UserService {
 
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository,
+                       PasswordEncoder passwordEncoder,
+                       EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.emailService = emailService;
     }
 
     // ─── 3.1 GET /api/admin/users — Paginated list ─────────────────────────
@@ -131,6 +139,61 @@ public class UserService {
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
         user.setRole(newRole);
         return UserResponse.fromUser(userRepository.save(user));
+    }
+
+    // ─── 3.8 POST /api/admin/users/{id}/reset-password — Admin reset password ─
+    public Map<String, String> adminResetPassword(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
+
+        if (Boolean.TRUE.equals(user.getBuiltin())) {
+            throw new IllegalArgumentException("Cannot reset password for built-in system account.");
+        }
+
+        String newPassword = generateRandomPassword();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setMustChangePassword(true);
+        user.setTokenVersion(user.getTokenVersion() == null ? 1 : user.getTokenVersion() + 1);
+        userRepository.save(user);
+
+        log.info("[ADMIN] Password reset for user id={}, email={}", id, user.getMail());
+
+        try {
+            emailService.sendPasswordReset(user.getMail(), newPassword);
+        } catch (Exception e) {
+            log.warn("[ADMIN] Failed to send password reset email to {}: {}", user.getMail(), e.getMessage());
+        }
+
+        return Map.of("message", "Password has been reset. New password sent to " + user.getMail());
+    }
+
+    // ─── 3.9 POST /api/admin/users/bulk-reset-password — Bulk admin reset ─────
+    public Map<String, Object> bulkAdminResetPassword(List<Long> ids) {
+        int successCount = 0;
+        List<String> errors = new java.util.ArrayList<>();
+
+        for (Long id : ids) {
+            try {
+                adminResetPassword(id);
+                successCount++;
+            } catch (Exception e) {
+                errors.add("User " + id + ": " + e.getMessage());
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("message", successCount + " of " + ids.size() + " passwords reset successfully");
+        result.put("successCount", successCount);
+        result.put("totalCount", ids.size());
+        if (!errors.isEmpty()) {
+            result.put("errors", errors);
+        }
+        return result;
+    }
+
+    // ─── Helper: Generate random password ─────────────────────────────────────
+    private String generateRandomPassword() {
+        return "123456";
     }
 
     // ─── Helper: Build JPA Specification for filtering ───────────────────────

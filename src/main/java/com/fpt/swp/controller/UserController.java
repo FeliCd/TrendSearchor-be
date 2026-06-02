@@ -84,4 +84,20 @@ public class UserController {
                                         @Valid @RequestBody UpdateRoleRequest req) {
         return ResponseEntity.ok(userService.updateUserRole(id, req.getRole()));
     }
+
+    // 3.8 POST /api/admin/users/{id}/reset-password — Admin reset password
+    @PostMapping("/{id}/reset-password")
+    public ResponseEntity<?> resetPassword(@PathVariable Long id) {
+        return ResponseEntity.ok(userService.adminResetPassword(id));
+    }
+
+    // 3.9 POST /api/admin/users/bulk-reset-password — Bulk reset passwords
+    @PostMapping("/bulk-reset-password")
+    public ResponseEntity<?> bulkResetPassword(@RequestBody Map<String, java.util.List<Long>> request) {
+        java.util.List<Long> ids = request.get("ids");
+        if (ids == null || ids.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "No user IDs provided"));
+        }
+        return ResponseEntity.ok(userService.bulkAdminResetPassword(ids));
+    }
 }

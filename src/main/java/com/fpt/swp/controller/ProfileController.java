@@ -141,6 +141,7 @@ public class ProfileController {
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("User not found"));
 
         user.setRole(req.getRole());
+        user.setTokenVersion(user.getTokenVersion() == null ? 1 : user.getTokenVersion() + 1);
         return ResponseEntity.ok(UserResponse.fromUser(userRepository.save(user)));
     }
 

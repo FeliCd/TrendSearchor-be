@@ -52,6 +52,22 @@ public class JwtTokenProvider {
                 .subject(subject)
                 .issuedAt(now)
                 .expiration(expiry)
+                .claim("tokenVersion", 0)
+                .signWith(secretKey)
+                .compact();
+    }
+
+    public String generateToken(Authentication authentication, Integer tokenVersion) {
+        String subject = authentication.getName();
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + jwtExpirationMs);
+
+        return Jwts.builder()
+                .id(UUID.randomUUID().toString())
+                .subject(subject)
+                .issuedAt(now)
+                .expiration(expiry)
+                .claim("tokenVersion", tokenVersion != null ? tokenVersion : 0)
                 .signWith(secretKey)
                 .compact();
     }
@@ -62,6 +78,17 @@ public class JwtTokenProvider {
 
     public String getJti(String token) {
         return parseClaims(token).getId();
+    }
+
+    public Integer getTokenVersion(String token) {
+        try {
+            Object version = parseClaims(token).get("tokenVersion");
+            if (version instanceof Integer) return (Integer) version;
+            if (version instanceof Number) return ((Number) version).intValue();
+        } catch (Exception e) {
+            log.warn("[JWT] Could not read tokenVersion from token: {}", e.getMessage());
+        }
+        return null;
     }
 
     public Instant getExpiration(String token) {

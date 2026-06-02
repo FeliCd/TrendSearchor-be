@@ -113,7 +113,7 @@ public class AuthController {
 
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 user.getMail(), null, java.util.Collections.emptyList());
-        String token = jwtTokenProvider.generateToken(authentication);
+        String token = jwtTokenProvider.generateToken(authentication, user.getTokenVersion());
         log.info("[AUTH] Login SUCCESS for email: {}", email);
 
         return ResponseEntity.ok(new JwtAuthResponse(token, UserResponse.fromUser(user)));
@@ -208,9 +208,19 @@ public class AuthController {
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setMustChangePassword(false);
+        user.setTokenVersion(user.getTokenVersion() == null ? 1 : user.getTokenVersion() + 1);
         userRepository.save(user);
 
-        return ResponseEntity.ok(ApiResponse.of("Password changed successfully"));
+        // Generate new token with updated tokenVersion so user isn't kicked out
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                user.getMail(), null, java.util.Collections.emptyList());
+        String newToken = jwtTokenProvider.generateToken(authentication, user.getTokenVersion());
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Password changed successfully",
+                "accessToken", newToken
+        ));
     }
 
     // ─────────────────────────────────────────────
@@ -227,6 +237,8 @@ public class AuthController {
 
         String newPassword = generateRandomPassword();
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setMustChangePassword(true);
+        user.setTokenVersion(user.getTokenVersion() == null ? 1 : user.getTokenVersion() + 1);
         userRepository.save(user);
 
         emailService.sendPasswordReset(user.getMail(), newPassword);
@@ -256,7 +268,6 @@ public class AuthController {
     }
 
     private String generateRandomPassword() {
-        String uuid = UUID.randomUUID().toString().replace("-", "").toUpperCase();
-        return "Trend@" + uuid.substring(0, 6) + "1";
+        return "123456";
     }
 }
