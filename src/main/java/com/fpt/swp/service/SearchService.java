@@ -56,6 +56,8 @@ public class SearchService {
                 request.getPage() * request.getSize(),
                 request.getSize(),
                 request.getYear(),
+                request.getYearFrom(),
+                request.getYearTo(),
                 request.getJournal(),
                 request.getAuthor(),
                 request.getSortBy()

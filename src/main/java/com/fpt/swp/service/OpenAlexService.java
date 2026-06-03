@@ -40,15 +40,15 @@ public class OpenAlexService {
     }
 
     public Map<String, Object> searchPapersRaw(String query, int offset, int limit) {
-        return searchPapersRaw(query, offset, limit, null, null, null, null);
+        return searchPapersRaw(query, offset, limit, null, null, null, null, null, null);
     }
 
     public Map<String, Object> searchPapersRaw(String query, int offset, int limit,
-                                               Integer year, String journal,
+                                               Integer year, Integer yearFrom, Integer yearTo, String journal,
                                                String author, String sortBy) {
         String encodedQuery = query.replace(" ", "%20");
 
-        String filterStr = buildFilterString(year, journal, author);
+        String filterStr = buildFilterString(year, yearFrom, yearTo, journal, author);
         String sortStr = buildSortString(sortBy);
         int pageNum = (offset / limit) + 1;
 
@@ -157,11 +157,19 @@ public class OpenAlexService {
         }
     }
 
-    private String buildFilterString(Integer year, String journal, String author) {
+    private String buildFilterString(Integer year, Integer yearFrom, Integer yearTo, String journal, String author) {
         List<String> filters = new ArrayList<>();
 
         if (year != null && year > 0) {
             filters.add("publication_year:" + year);
+        } else if ((yearFrom != null && yearFrom > 0) || (yearTo != null && yearTo > 0)) {
+            if (yearFrom != null && yearTo != null) {
+                filters.add("publication_year:" + yearFrom + "-" + yearTo);
+            } else if (yearFrom != null) {
+                filters.add("publication_year:>" + (yearFrom - 1));
+            } else {
+                filters.add("publication_year:<" + (yearTo + 1));
+            }
         }
 
         if (journal != null && !journal.isBlank()) {

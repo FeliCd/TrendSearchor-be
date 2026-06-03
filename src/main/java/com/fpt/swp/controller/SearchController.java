@@ -33,17 +33,32 @@ public class SearchController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo,
             @RequestParam(required = false) String journal,
             @RequestParam(required = false) String author,
             @RequestParam(defaultValue = "relevance") String sortBy,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         Long userId = authUtils.extractUserId(userDetails);
+
+        // Convert date strings to year integers for filtering
+        Integer yearFrom = null;
+        Integer yearTo = null;
+        if (dateFrom != null && dateFrom.length() >= 4) {
+            try { yearFrom = Integer.parseInt(dateFrom.substring(0, 4)); } catch (Exception ignored) {}
+        }
+        if (dateTo != null && dateTo.length() >= 4) {
+            try { yearTo = Integer.parseInt(dateTo.substring(0, 4)); } catch (Exception ignored) {}
+        }
+
         PaperSearchRequest request = PaperSearchRequest.builder()
                 .query(query)
                 .page(page)
                 .size(size)
                 .year(year)
+                .yearFrom(yearFrom)
+                .yearTo(yearTo)
                 .journal(journal)
                 .author(author)
                 .sortBy(sortBy)
@@ -52,6 +67,7 @@ public class SearchController {
         PaperSearchResponse response = searchService.searchPapers(request, userId);
         return ResponseEntity.ok(response);
     }
+
 
     @GetMapping("/papers")
     public ResponseEntity<Page<ResearchPaper>> getLocalPapers(
