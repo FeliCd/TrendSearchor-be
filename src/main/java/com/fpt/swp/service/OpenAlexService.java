@@ -423,14 +423,15 @@ public class OpenAlexService {
             StringBuilder urlBuilder = new StringBuilder(BASE_URL)
                     .append("/works?search=").append(encodedQuery)
                     .append("&mailto=").append(mailto)
-                    .append("&per-page=1")
-                    .append("&group-by=publication_year");
+                    .append("&per-page=200")
+                    .append("&group_by=publication_year");
 
-            if (startYear != null && startYear > 0) {
+            if (startYear != null && startYear > 0 && endYear != null && endYear > 0) {
+                urlBuilder.append("&filter=publication_year:").append(startYear).append("-").append(endYear);
+            } else if (startYear != null && startYear > 0) {
                 urlBuilder.append("&filter=publication_year:>").append(startYear - 1);
-            }
-            if (endYear != null && endYear > 0) {
-                urlBuilder.append(",publication_year:<").append(endYear + 1);
+            } else if (endYear != null && endYear > 0) {
+                urlBuilder.append("&filter=publication_year:<").append(endYear + 1);
             }
 
             String url = urlBuilder.toString();
