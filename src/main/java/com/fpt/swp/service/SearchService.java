@@ -58,6 +58,8 @@ public class SearchService {
                 request.getYear(),
                 request.getYearFrom(),
                 request.getYearTo(),
+                request.getDateFromStr(),
+                request.getDateToStr(),
                 request.getJournal(),
                 request.getAuthor(),
                 request.getSortBy()

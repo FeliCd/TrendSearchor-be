@@ -40,15 +40,16 @@ public class OpenAlexService {
     }
 
     public Map<String, Object> searchPapersRaw(String query, int offset, int limit) {
-        return searchPapersRaw(query, offset, limit, null, null, null, null, null, null);
+        return searchPapersRaw(query, offset, limit, null, null, null, null, null, null, null, null);
     }
 
     public Map<String, Object> searchPapersRaw(String query, int offset, int limit,
-                                               Integer year, Integer yearFrom, Integer yearTo, String journal,
-                                               String author, String sortBy) {
+                                               Integer year, Integer yearFrom, Integer yearTo,
+                                               String dateFromStr, String dateToStr,
+                                               String journal, String author, String sortBy) {
         String encodedQuery = query.replace(" ", "%20");
 
-        String filterStr = buildFilterString(year, yearFrom, yearTo, journal, author);
+        String filterStr = buildFilterString(year, yearFrom, yearTo, dateFromStr, dateToStr, journal, author);
         String sortStr = buildSortString(sortBy);
         int pageNum = (offset / limit) + 1;
 
@@ -157,29 +158,44 @@ public class OpenAlexService {
         }
     }
 
-    private String buildFilterString(Integer year, Integer yearFrom, Integer yearTo, String journal, String author) {
+    private String buildFilterString(Integer year, Integer yearFrom, Integer yearTo,
+                                     String dateFromStr, String dateToStr,
+                                     String journal, String author) {
         List<String> filters = new ArrayList<>();
 
-        if (year != null && year > 0) {
-            filters.add("publication_year:" + year);
-        } else if ((yearFrom != null && yearFrom > 0) || (yearTo != null && yearTo > 0)) {
-            if (yearFrom != null && yearTo != null) {
-                filters.add("publication_year:" + yearFrom + "-" + yearTo);
-            } else if (yearFrom != null) {
-                filters.add("publication_year:>" + (yearFrom - 1));
-            } else {
-                filters.add("publication_year:<" + (yearTo + 1));
+        // Use full date (day/month precision) when available via from_publication_date / to_publication_date
+        boolean hasDayPrecision = (dateFromStr != null && dateFromStr.length() >= 8)
+                               || (dateToStr   != null && dateToStr.length()   >= 8);
+
+        if (hasDayPrecision) {
+            // OpenAlex supports: from_publication_date:YYYY-MM-DD, to_publication_date:YYYY-MM-DD
+            if (dateFromStr != null && !dateFromStr.isBlank()) {
+                filters.add("from_publication_date:" + dateFromStr.substring(0, 10));
+            }
+            if (dateToStr != null && !dateToStr.isBlank()) {
+                filters.add("to_publication_date:" + dateToStr.substring(0, 10));
+            }
+        } else {
+            // Fall back to year-level filtering
+            if (year != null && year > 0) {
+                filters.add("publication_year:" + year);
+            } else if ((yearFrom != null && yearFrom > 0) || (yearTo != null && yearTo > 0)) {
+                if (yearFrom != null && yearTo != null) {
+                    filters.add("publication_year:" + yearFrom + "-" + yearTo);
+                } else if (yearFrom != null) {
+                    filters.add("publication_year:>" + (yearFrom - 1));
+                } else {
+                    filters.add("publication_year:<" + (yearTo + 1));
+                }
             }
         }
 
         if (journal != null && !journal.isBlank()) {
-            String encodedJournal = journal.replace(" ", "%20").replace(",", "%2C");
-            filters.add("primary_location.source.display_name:" + encodedJournal);
+            filters.add("primary_location.source.id:" + journal);
         }
 
         if (author != null && !author.isBlank()) {
-            String encodedAuthor = author.replace(" ", "%20").replace(",", "%2C");
-            filters.add("authorships.author.display_name:" + encodedAuthor);
+            filters.add("authorships.author.id:" + author);
         }
 
         return String.join(",", filters);

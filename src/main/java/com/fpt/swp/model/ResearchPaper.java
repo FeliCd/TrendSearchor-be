@@ -81,6 +81,15 @@ public class ResearchPaper {
     @Builder.Default
     private Set<ResearchTopic> topics = new HashSet<>();
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "paper_citations",
+            joinColumns = @JoinColumn(name = "citing_paper_id"),
+            inverseJoinColumns = @JoinColumn(name = "cited_paper_id")
+    )
+    @Builder.Default
+    private Set<ResearchPaper> citedPapers = new HashSet<>();
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

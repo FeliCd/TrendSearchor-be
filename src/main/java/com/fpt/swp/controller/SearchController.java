@@ -59,6 +59,8 @@ public class SearchController {
                 .year(year)
                 .yearFrom(yearFrom)
                 .yearTo(yearTo)
+                .dateFromStr(dateFrom) // full date for day/month precision
+                .dateToStr(dateTo)
                 .journal(journal)
                 .author(author)
                 .sortBy(sortBy)

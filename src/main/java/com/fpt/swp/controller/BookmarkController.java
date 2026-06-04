@@ -26,12 +26,13 @@ public class BookmarkController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String type,
+            @RequestParam(required = false) Long collectionId,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         Long userId = authUtils.extractUserId(userDetails);
         if (userId == null) return ResponseEntity.status(401).build();
 
-        Page<Bookmark> bookmarks = bookmarkService.getUserBookmarks(userId, type, page, size);
+        Page<Bookmark> bookmarks = bookmarkService.getUserBookmarks(userId, type, collectionId, page, size);
         var content = bookmarks.getContent().stream()
                 .map(BookmarkResponse::fromBookmark)
                 .toList();
@@ -102,6 +103,17 @@ public class BookmarkController {
 
         bookmarkService.removeBookmarkById(userId, id);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/network")
+    public ResponseEntity<com.fpt.swp.dto.GraphResponse> getBookmarkNetwork(
+            @RequestParam(required = false) Long collectionId,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        Long userId = authUtils.extractUserId(userDetails);
+        if (userId == null) return ResponseEntity.status(401).build();
+
+        return ResponseEntity.ok(bookmarkService.getUserBookmarkNetwork(userId, collectionId));
     }
 
     @GetMapping("/stats")

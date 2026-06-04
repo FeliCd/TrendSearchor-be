@@ -1,5 +1,6 @@
 package com.fpt.swp.service;
 
+import com.fpt.swp.dto.GraphResponse;
 import com.fpt.swp.dto.PaperDto;
 import com.fpt.swp.model.*;
 import com.fpt.swp.repository.*;
@@ -10,6 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,8 +49,9 @@ public class BookmarkService {
             paper = buildPaperFromOpenAlex(rawPaper, externalId);
         }
 
-        if (bookmarkRepository.existsByUserIdAndPaperId(userId, paper.getId())) {
-            throw new IllegalStateException("Paper already bookmarked");
+        Bookmark existing = bookmarkRepository.findByUserIdAndPaperId(userId, paper.getId()).orElse(null);
+        if (existing != null) {
+            return existing;
         }
 
         Bookmark bookmark = Bookmark.builder()
@@ -113,7 +116,15 @@ public class BookmarkService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Bookmark> getUserBookmarks(Long userId, String type, int page, int size) {
+    public Page<Bookmark> getUserBookmarks(Long userId, String type, Long collectionId, int page, int size) {
+        if (collectionId != null) {
+            if (type != null && !type.isBlank()) {
+                BookmarkType bookmarkType = BookmarkType.valueOf(type.toUpperCase());
+                return bookmarkRepository.findBookmarksByCollectionAndType(userId, collectionId, bookmarkType, PageRequest.of(page, size));
+            }
+            return bookmarkRepository.findBookmarksByCollection(userId, collectionId, PageRequest.of(page, size));
+        }
+
         if (type != null && !type.isBlank()) {
             BookmarkType bookmarkType = BookmarkType.valueOf(type.toUpperCase());
             return bookmarkRepository.findByUserIdAndType(userId, bookmarkType, PageRequest.of(page, size));
@@ -146,6 +157,45 @@ public class BookmarkService {
         stats.put("keywordCount", bookmarkRepository.countByUserIdAndType(userId, BookmarkType.KEYWORD));
         return stats;
     }
+
+    @Transactional(readOnly = true)
+    public GraphResponse getUserBookmarkNetwork(Long userId, Long collectionId) {
+        List<Bookmark> bookmarks;
+        if (collectionId != null) {
+            bookmarks = bookmarkRepository.findBookmarksByCollectionAndPaperIsNotNull(userId, collectionId);
+        } else {
+            bookmarks = bookmarkRepository.findByUserIdAndType(userId, BookmarkType.PAPER, PageRequest.of(0, 1000)).getContent();
+        }
+        
+        List<ResearchPaper> bookmarkedPapers = bookmarks.stream()
+                .map(Bookmark::getPaper)
+                .toList();
+
+        List<GraphResponse.Node> nodes = new ArrayList<>();
+        List<GraphResponse.Link> links = new ArrayList<>();
+
+        for (ResearchPaper p : bookmarkedPapers) {
+            nodes.add(GraphResponse.Node.builder()
+                    .id(p.getId().toString())
+                    .title(p.getTitle())
+                    .year(p.getYear())
+                    .citationCount(p.getCitationCount())
+                    .type("PAPER")
+                    .build());
+
+            for (ResearchPaper cited : p.getCitedPapers()) {
+                if (bookmarkedPapers.contains(cited)) {
+                    links.add(GraphResponse.Link.builder()
+                            .source(p.getId().toString())
+                            .target(cited.getId().toString())
+                            .build());
+                }
+            }
+        }
+
+        return new GraphResponse(nodes, links);
+    }
+
 
     @SuppressWarnings("unchecked")
     private ResearchPaper buildPaperFromOpenAlex(Map<String, Object> raw, String externalId) {
@@ -221,16 +271,44 @@ public class BookmarkService {
         if (topicsList instanceof List) {
             for (Object topicItem : (List<?>) topicsList) {
                 if (topicItem instanceof Map) {
-                    String kwName = (String) ((Map<String, Object>) topicItem).get("display_name");
-                    if (kwName != null && kwName.length() <= 200) {
-                        Keyword keyword = keywordRepository.findByName(kwName.toLowerCase())
-                                .orElseGet(() -> {
-                                    Keyword k = new Keyword();
-                                    k.setName(kwName.toLowerCase());
-                                    k.setDisplayName(kwName);
-                                    return keywordRepository.save(k);
-                                });
-                        paper.getKeywords().add(keyword);
+                    Map<String, Object> tMap = (Map<String, Object>) topicItem;
+                    addKeywordToPaper(paper, (String) tMap.get("display_name"));
+                    
+                    Object subfield = tMap.get("subfield");
+                    if (subfield instanceof Map) {
+                        addKeywordToPaper(paper, (String) ((Map<String, Object>) subfield).get("display_name"));
+                    }
+                    
+                    Object field = tMap.get("field");
+                    if (field instanceof Map) {
+                        addKeywordToPaper(paper, (String) ((Map<String, Object>) field).get("display_name"));
+                    }
+                }
+            }
+        }
+
+        Object keywordList = raw.get("keywords");
+        if (keywordList instanceof List) {
+            for (Object kwItem : (List<?>) keywordList) {
+                if (kwItem instanceof Map) {
+                    addKeywordToPaper(paper, (String) ((Map<String, Object>) kwItem).get("display_name"));
+                } else if (kwItem instanceof String) {
+                    addKeywordToPaper(paper, (String) kwItem);
+                }
+            }
+        }
+
+        Object referencedWorksNode = raw.get("referenced_works");
+        if (referencedWorksNode instanceof List) {
+            for (Object refItem : (List<?>) referencedWorksNode) {
+                if (refItem instanceof String refId) {
+                    String shortId = refId;
+                    if (refId.startsWith("https://openalex.org/")) {
+                        shortId = refId.substring("https://openalex.org/".length());
+                    }
+                    paperRepository.findByExternalId(shortId).ifPresent(citedPaper -> paper.getCitedPapers().add(citedPaper));
+                    if (!shortId.equals(refId)) {
+                        paperRepository.findByExternalId(refId).ifPresent(citedPaper -> paper.getCitedPapers().add(citedPaper));
                     }
                 }
             }
@@ -248,5 +326,18 @@ public class BookmarkService {
             }
         });
         return sb.toString().trim();
+    }
+
+    private void addKeywordToPaper(ResearchPaper paper, String kwName) {
+        if (kwName != null && !kwName.isBlank() && kwName.length() <= 200) {
+            Keyword keyword = keywordRepository.findByName(kwName.toLowerCase())
+                    .orElseGet(() -> {
+                        Keyword k = new Keyword();
+                        k.setName(kwName.toLowerCase());
+                        k.setDisplayName(kwName);
+                        return keywordRepository.save(k);
+                    });
+            paper.getKeywords().add(keyword);
+        }
     }
 }

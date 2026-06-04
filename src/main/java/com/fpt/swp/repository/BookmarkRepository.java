@@ -24,6 +24,16 @@ public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
             @Param("type") BookmarkType type,
             Pageable pageable);
 
+    @Query("SELECT b FROM Collection c JOIN c.bookmarks b WHERE c.id = :collectionId AND c.user.id = :userId ORDER BY b.createdAt DESC")
+    Page<Bookmark> findBookmarksByCollection(@Param("userId") Long userId, @Param("collectionId") Long collectionId, Pageable pageable);
+
+    @Query("SELECT b FROM Collection c JOIN c.bookmarks b WHERE c.id = :collectionId AND c.user.id = :userId AND b.bookmarkType = :type ORDER BY b.createdAt DESC")
+    Page<Bookmark> findBookmarksByCollectionAndType(
+            @Param("userId") Long userId,
+            @Param("collectionId") Long collectionId,
+            @Param("type") BookmarkType type,
+            Pageable pageable);
+
     @Query("SELECT b FROM Bookmark b WHERE b.user.id = :userId AND b.paper.id = :paperId")
     Optional<Bookmark> findByUserIdAndPaperId(@Param("userId") Long userId, @Param("paperId") Long paperId);
 
@@ -43,4 +53,10 @@ public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
     List<Bookmark> findByUserIdAndPaperIdIsNotNull(Long userId);
 
     List<Bookmark> findByUserIdAndKeywordIdIsNotNull(Long userId);
+
+    @Query("SELECT b FROM Collection c JOIN c.bookmarks b WHERE c.id = :collectionId AND c.user.id = :userId AND b.paper IS NOT NULL")
+    List<Bookmark> findBookmarksByCollectionAndPaperIsNotNull(@Param("userId") Long userId, @Param("collectionId") Long collectionId);
+
+    @Query("SELECT b FROM Collection c JOIN c.bookmarks b WHERE c.id = :collectionId AND c.user.id = :userId AND b.keyword IS NOT NULL")
+    List<Bookmark> findBookmarksByCollectionAndKeywordIsNotNull(@Param("userId") Long userId, @Param("collectionId") Long collectionId);
 }
