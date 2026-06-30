@@ -23,6 +23,8 @@ public interface JournalRepository extends JpaRepository<Journal, Long> {
 
     Optional<Journal> findByIssn(String issn);
 
+    Optional<Journal> findByNameIgnoreCase(String name);
+
     @Query("SELECT j FROM Journal j ORDER BY j.name ASC")
     Page<Journal> findAllOrderByName(Pageable pageable);
 

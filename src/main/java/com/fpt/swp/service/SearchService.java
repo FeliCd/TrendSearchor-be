@@ -51,6 +51,16 @@ public class SearchService {
 
     @Transactional
     public PaperSearchResponse searchPapers(PaperSearchRequest request, Long userId) {
+        List<PaperDto> localApprovedPapers = new ArrayList<>();
+        if (request.getQuery() != null && !request.getQuery().isBlank() && request.getPage() == 0) {
+            Page<ResearchPaper> localPage = paperRepository.searchApprovedLocalPapers(
+                    request.getQuery(), PageRequest.of(0, request.getSize())
+            );
+            localApprovedPapers = localPage.getContent().stream()
+                    .map(this::mapLocalPaperToDto)
+                    .collect(Collectors.toList());
+        }
+
         Map<String, Object> rawResult = openAlexService.searchPapersRaw(
                 request.getQuery(),
                 request.getPage() * request.getSize(),
@@ -69,20 +79,36 @@ public class SearchService {
         List<Map<String, Object>> rawPapers = findPapersList(rawResult);
         long total = findTotal(rawResult);
 
-        List<PaperDto> papers = rawPapers.stream()
+        List<PaperDto> openAlexPapers = rawPapers.stream()
                 .map(p -> mapToPaperDto(p, userId))
                 .collect(Collectors.toList());
+
+        List<PaperDto> mergedPapers = new ArrayList<>(localApprovedPapers);
+        Set<String> localTitles = localApprovedPapers.stream()
+                .map(p -> p.getTitle().toLowerCase().trim())
+                .collect(Collectors.toSet());
+        for (PaperDto oaPaper : openAlexPapers) {
+            if (oaPaper.getTitle() != null && !localTitles.contains(oaPaper.getTitle().toLowerCase().trim())) {
+                mergedPapers.add(oaPaper);
+            }
+        }
+
+        if (mergedPapers.size() > request.getSize()) {
+            mergedPapers = mergedPapers.subList(0, request.getSize());
+        }
+
+        long adjustedTotal = total + localApprovedPapers.size();
 
         if (userId != null && request.getQuery() != null && !request.getQuery().isBlank()) {
             saveRecentSearch(request.getQuery(), SearchType.PAPER, userId);
         }
 
         return PaperSearchResponse.builder()
-                .papers(papers)
-                .total(total)
+                .papers(mergedPapers)
+                .total(adjustedTotal)
                 .page(request.getPage())
                 .size(request.getSize())
-                .totalPages((int) Math.ceil((double) total / request.getSize()))
+                .totalPages((int) Math.ceil((double) adjustedTotal / request.getSize()))
                 .build();
     }
 
@@ -227,6 +253,9 @@ public class SearchService {
                         .collect(Collectors.toList()))
                 .journals(paper.getJournals().stream().map(Journal::getName).collect(Collectors.toList()))
                 .keywords(paper.getKeywords().stream().map(Keyword::getName).collect(Collectors.toList()))
+                .status(paper.getStatus() != null ? paper.getStatus().name() : null)
+                .uploadedBy(paper.getUploadedBy() != null ? paper.getUploadedBy().getMail() : null)
+                .statusComments(paper.getStatusComments())
                 .build();
     }
 
