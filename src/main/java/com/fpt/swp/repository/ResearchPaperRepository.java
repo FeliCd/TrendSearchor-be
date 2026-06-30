@@ -50,4 +50,24 @@ public interface ResearchPaperRepository extends JpaRepository<ResearchPaper, Lo
 
     @Query("SELECT p FROM ResearchPaper p ORDER BY p.citationCount DESC")
     Page<ResearchPaper> findTopByCitations(Pageable pageable);
+
+    // ─── Upload / Moderation queries ────────────────────────────────────────────
+
+    @Query("SELECT p FROM ResearchPaper p WHERE p.uploadStatus = :status ORDER BY p.createdAt DESC")
+    Page<ResearchPaper> findByUploadStatus(@Param("status") com.fpt.swp.model.UploadStatus status, Pageable pageable);
+
+    @Query("SELECT p FROM ResearchPaper p WHERE p.uploadedBy.id = :userId ORDER BY p.createdAt DESC")
+    Page<ResearchPaper> findByUploadedBy(@Param("userId") Long userId, Pageable pageable);
+
+    @Query("SELECT COUNT(p) FROM ResearchPaper p WHERE p.uploadStatus = :status")
+    long countByUploadStatus(@Param("status") com.fpt.swp.model.UploadStatus status);
+
+    @Query("SELECT COUNT(p) FROM ResearchPaper p WHERE p.source = com.fpt.swp.model.PaperSource.USER_UPLOAD")
+    long countUserUploads();
+
+    @Query("SELECT p FROM ResearchPaper p WHERE p.source = com.fpt.swp.model.PaperSource.USER_UPLOAD " +
+           "AND p.uploadStatus = com.fpt.swp.model.UploadStatus.APPROVED " +
+           "AND LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%')) " +
+           "ORDER BY p.createdAt DESC")
+    List<ResearchPaper> searchApprovedUploads(@Param("query") String query, Pageable pageable);
 }

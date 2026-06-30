@@ -74,7 +74,12 @@ public class SecurityConfig {
 
                     auth.requestMatchers("/api/auth/**", "/error").permitAll();
                     auth.requestMatchers("/api/dashboard/public", "/api/trends/**").permitAll();
-                    auth.requestMatchers("/api/papers/**", "/api/journals/**", "/api/authors/**", "/api/keywords/**", "/api/topics/**", "/api/top-papers").permitAll();
+                    // Public read access to papers/journals/authors/keywords (GET only)
+                    auth.requestMatchers(HttpMethod.GET, "/api/papers/**", "/api/journals/**", "/api/authors/**", "/api/keywords/**", "/api/topics/**", "/api/top-papers").permitAll();
+                    // Paper upload requires authentication (role checked via @PreAuthorize)
+                    auth.requestMatchers(HttpMethod.POST, "/api/papers/upload").authenticated();
+                    // Moderation requires authentication (role checked via @PreAuthorize)
+                    auth.requestMatchers("/api/moderation/**").authenticated();
                     auth.anyRequest().authenticated();
                 });
 

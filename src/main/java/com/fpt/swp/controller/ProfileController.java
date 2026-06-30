@@ -140,6 +140,11 @@ public class ProfileController {
         User user = userRepository.findByMail(email)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("User not found"));
 
+        // Security check: Prevent users from escalating privileges
+        if (req.getRole() == com.fpt.swp.model.Role.ADMIN || req.getRole() == com.fpt.swp.model.Role.MODERATOR) {
+            throw new IllegalArgumentException("Unauthorized role escalation attempt.");
+        }
+
         user.setRole(req.getRole());
         user.setTokenVersion(user.getTokenVersion() == null ? 1 : user.getTokenVersion() + 1);
         return ResponseEntity.ok(UserResponse.fromUser(userRepository.save(user)));

@@ -30,6 +30,7 @@ public class Keyword {
 
     @ManyToMany(mappedBy = "keywords", fetch = FetchType.LAZY)
     @Builder.Default
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private Set<ResearchPaper> papers = new HashSet<>();
 
     @Column(name = "created_at", updatable = false)

@@ -1,5 +1,6 @@
 package com.fpt.swp.model;
 
 public enum NotificationType {
-    NEW_PAPER, TRENDING, JOURNAL_UPDATE, SYSTEM
+    NEW_PAPER, TRENDING, JOURNAL_UPDATE, SYSTEM,
+    PAPER_UPLOADED, PAPER_APPROVED, PAPER_REJECTED
 }

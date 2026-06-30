@@ -90,6 +90,30 @@ public class ResearchPaper {
     @Builder.Default
     private Set<ResearchPaper> citedPapers = new HashSet<>();
 
+    // ─── Upload / Moderation fields ────────────────────────────────────────────
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private PaperSource source = PaperSource.OPENALEX;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "upload_status", length = 20)
+    private UploadStatus uploadStatus;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "uploaded_by")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private User uploadedBy;
+
+    @Column(name = "rejection_reason", length = 500)
+    private String rejectionReason;
+
+    @Column(name = "pdf_url", length = 500)
+    private String pdfUrl;
+
+    // ─── Timestamps ────────────────────────────────────────────────────────────
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

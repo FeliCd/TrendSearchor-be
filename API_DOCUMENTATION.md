@@ -1007,6 +1007,7 @@ async function apiCall(url, options = {}) {
 | Value | Description |
 |-------|-------------|
 | `ADMIN` | Full access, user management |
+| `MODERATOR` | Content moderation, limited admin access |
 | `LECTURER` | Academic staff |
 | `STUDENT` | Student account |
 | `RESEARCHER` | Research account |

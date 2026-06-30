@@ -171,4 +171,5 @@ public class SearchController {
     ) {
         return ResponseEntity.ok(dashboardService.getTopPapers(limit));
     }
+
 }

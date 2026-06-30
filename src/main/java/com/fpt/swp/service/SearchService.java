@@ -51,6 +51,19 @@ public class SearchService {
 
     @Transactional
     public PaperSearchResponse searchPapers(PaperSearchRequest request, Long userId) {
+        // Fetch local approved uploads if query is present
+        List<PaperDto> localPapers = new ArrayList<>();
+        if (request.getQuery() != null && !request.getQuery().isBlank()) {
+            List<ResearchPaper> localUploads = paperRepository.searchApprovedUploads(
+                    request.getQuery(), 
+                    PageRequest.of(request.getPage(), request.getSize())
+            );
+            localPapers = localUploads.stream()
+                    .map(this::mapLocalPaperToDto)
+                    .collect(Collectors.toList());
+        }
+
+        // Fetch external OpenAlex results
         Map<String, Object> rawResult = openAlexService.searchPapersRaw(
                 request.getQuery(),
                 request.getPage() * request.getSize(),
@@ -67,18 +80,27 @@ public class SearchService {
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> rawPapers = findPapersList(rawResult);
-        long total = findTotal(rawResult);
+        long total = findTotal(rawResult) + localPapers.size();
 
-        List<PaperDto> papers = rawPapers.stream()
+        List<PaperDto> externalPapers = rawPapers.stream()
                 .map(p -> mapToPaperDto(p, userId))
                 .collect(Collectors.toList());
+
+        // Merge local papers at the top
+        List<PaperDto> combinedPapers = new ArrayList<>(localPapers);
+        combinedPapers.addAll(externalPapers);
+        
+        // Ensure we respect the requested size (if local papers fill it up, drop some external ones)
+        if (combinedPapers.size() > request.getSize()) {
+            combinedPapers = combinedPapers.subList(0, request.getSize());
+        }
 
         if (userId != null && request.getQuery() != null && !request.getQuery().isBlank()) {
             saveRecentSearch(request.getQuery(), SearchType.PAPER, userId);
         }
 
         return PaperSearchResponse.builder()
-                .papers(papers)
+                .papers(combinedPapers)
                 .total(total)
                 .page(request.getPage())
                 .size(request.getSize())
