@@ -5,6 +5,8 @@ import com.fpt.swp.model.*;
 import com.fpt.swp.repository.KeywordRepository;
 import com.fpt.swp.repository.ResearchPaperRepository;
 import com.fpt.swp.repository.UserRepository;
+import com.fpt.swp.repository.AuthorRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -27,6 +29,7 @@ public class PaperUploadService {
     private final ResearchPaperRepository paperRepository;
     private final KeywordRepository keywordRepository;
     private final UserRepository userRepository;
+    private final AuthorRepository authorRepository;
     private final NotificationService notificationService;
 
     /**
@@ -35,7 +38,7 @@ public class PaperUploadService {
     @Transactional
     public ResearchPaper uploadPaper(PaperUploadRequest request, Long userId) {
         User uploader = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
 
         // Build the paper entity
         ResearchPaper paper = ResearchPaper.builder()
@@ -49,6 +52,22 @@ public class PaperUploadService {
                 .citationCount(0)
                 .openAccess(true)
                 .build();
+
+        // Link authors
+        if (request.getAuthors() != null && !request.getAuthors().isEmpty()) {
+            Set<Author> authors = new HashSet<>();
+            for (String authorName : request.getAuthors()) {
+                String normalized = authorName.trim();
+                if (normalized.isEmpty()) continue;
+                
+                Author author = Author.builder()
+                        .name(normalized)
+                        .build();
+                author = authorRepository.save(author);
+                authors.add(author);
+            }
+            paper.setAuthors(authors);
+        }
 
         // Link keywords
         if (request.getKeywords() != null && !request.getKeywords().isEmpty()) {

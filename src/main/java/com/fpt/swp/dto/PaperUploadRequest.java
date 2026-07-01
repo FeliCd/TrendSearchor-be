@@ -2,6 +2,7 @@ package com.fpt.swp.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import org.hibernate.validator.constraints.URL;
 import lombok.Data;
 
 import java.util.List;
@@ -18,7 +19,10 @@ public class PaperUploadRequest {
 
     private Integer year;
 
+    private List<String> authors;
+
     private List<String> keywords;
 
+    @URL(message = "pdfUrl must be a valid URL")
     private String pdfUrl;
 }

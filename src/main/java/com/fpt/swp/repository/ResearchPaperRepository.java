@@ -3,6 +3,7 @@ package com.fpt.swp.repository;
 import com.fpt.swp.model.ResearchPaper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -53,9 +54,11 @@ public interface ResearchPaperRepository extends JpaRepository<ResearchPaper, Lo
 
     // ─── Upload / Moderation queries ────────────────────────────────────────────
 
+    @EntityGraph(attributePaths = {"authors", "keywords", "uploadedBy"})
     @Query("SELECT p FROM ResearchPaper p WHERE p.uploadStatus = :status ORDER BY p.createdAt DESC")
     Page<ResearchPaper> findByUploadStatus(@Param("status") com.fpt.swp.model.UploadStatus status, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"authors", "keywords"})
     @Query("SELECT p FROM ResearchPaper p WHERE p.uploadedBy.id = :userId ORDER BY p.createdAt DESC")
     Page<ResearchPaper> findByUploadedBy(@Param("userId") Long userId, Pageable pageable);
 
@@ -65,6 +68,7 @@ public interface ResearchPaperRepository extends JpaRepository<ResearchPaper, Lo
     @Query("SELECT COUNT(p) FROM ResearchPaper p WHERE p.source = com.fpt.swp.model.PaperSource.USER_UPLOAD")
     long countUserUploads();
 
+    @EntityGraph(attributePaths = {"authors", "keywords"})
     @Query("SELECT p FROM ResearchPaper p WHERE p.source = com.fpt.swp.model.PaperSource.USER_UPLOAD " +
            "AND p.uploadStatus = com.fpt.swp.model.UploadStatus.APPROVED " +
            "AND LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%')) " +

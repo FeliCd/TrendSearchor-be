@@ -4,6 +4,7 @@ import com.fpt.swp.dto.ModerationStatsDto;
 import com.fpt.swp.model.*;
 import com.fpt.swp.repository.ResearchPaperRepository;
 import com.fpt.swp.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -39,7 +40,7 @@ public class ModerationService {
     @Transactional(readOnly = true)
     public ResearchPaper getPaperForReview(Long paperId) {
         return paperRepository.findById(paperId)
-                .orElseThrow(() -> new RuntimeException("Paper not found: " + paperId));
+                .orElseThrow(() -> new EntityNotFoundException("Paper not found: " + paperId));
     }
 
     /**
@@ -48,10 +49,10 @@ public class ModerationService {
     @Transactional
     public ResearchPaper approvePaper(Long paperId, Long moderatorId) {
         ResearchPaper paper = paperRepository.findById(paperId)
-                .orElseThrow(() -> new RuntimeException("Paper not found: " + paperId));
+                .orElseThrow(() -> new EntityNotFoundException("Paper not found: " + paperId));
 
         if (paper.getUploadStatus() != UploadStatus.PENDING) {
-            throw new RuntimeException("Paper is not in PENDING status. Current: " + paper.getUploadStatus());
+            throw new IllegalArgumentException("Paper is not in PENDING status. Current: " + paper.getUploadStatus());
         }
 
         paper.setUploadStatus(UploadStatus.APPROVED);
@@ -71,9 +72,6 @@ public class ModerationService {
             );
         }
 
-        // Notify all users about the new paper
-        notifyUsersNewPaper(paper);
-
         return saved;
     }
 
@@ -83,10 +81,10 @@ public class ModerationService {
     @Transactional
     public ResearchPaper rejectPaper(Long paperId, String reason, Long moderatorId) {
         ResearchPaper paper = paperRepository.findById(paperId)
-                .orElseThrow(() -> new RuntimeException("Paper not found: " + paperId));
+                .orElseThrow(() -> new EntityNotFoundException("Paper not found: " + paperId));
 
         if (paper.getUploadStatus() != UploadStatus.PENDING) {
-            throw new RuntimeException("Paper is not in PENDING status. Current: " + paper.getUploadStatus());
+            throw new IllegalArgumentException("Paper is not in PENDING status. Current: " + paper.getUploadStatus());
         }
 
         paper.setUploadStatus(UploadStatus.REJECTED);
@@ -121,33 +119,5 @@ public class ModerationService {
                 .rejectedCount(paperRepository.countByUploadStatus(UploadStatus.REJECTED))
                 .totalUploads(paperRepository.countUserUploads())
                 .build();
-    }
-
-    /**
-     * Notify all researchers and users that a new paper is available.
-     */
-    private void notifyUsersNewPaper(ResearchPaper paper) {
-        List<User> researchers = userRepository.findByRole(Role.RESEARCHER);
-        List<User> users = userRepository.findByRole(Role.USER);
-
-        String title = "New research paper available";
-        String message = String.format("A new paper has been published: \"%s\"", paper.getTitle());
-
-        for (User user : researchers) {
-            // Skip the uploader — they already got an "approved" notification
-            if (paper.getUploadedBy() != null && user.getId().equals(paper.getUploadedBy().getId())) continue;
-            try {
-                notificationService.createNotification(user.getId(), NotificationType.NEW_PAPER, title, message);
-            } catch (Exception e) {
-                log.warn("Failed to notify user {}: {}", user.getId(), e.getMessage());
-            }
-        }
-        for (User user : users) {
-            try {
-                notificationService.createNotification(user.getId(), NotificationType.NEW_PAPER, title, message);
-            } catch (Exception e) {
-                log.warn("Failed to notify user {}: {}", user.getId(), e.getMessage());
-            }
-        }
     }
 }
