@@ -20,4 +20,7 @@ public class PaperDto {
     private List<String> journals;
     private List<String> keywords;
     private Boolean isBookmarked;
+    private String source;
+    private String uploadStatus;
+    private String rejectionReason;
 }

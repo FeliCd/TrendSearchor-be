@@ -227,7 +227,7 @@ public class SearchService {
         return dto;
     }
 
-    private PaperDto mapLocalPaperToDto(ResearchPaper paper) {
+    public PaperDto mapLocalPaperToDto(ResearchPaper paper) {
         return PaperDto.builder()
                 .id(paper.getId())
                 .externalId(paper.getExternalId())
@@ -249,6 +249,9 @@ public class SearchService {
                         .collect(Collectors.toList()))
                 .journals(paper.getJournals().stream().map(Journal::getName).collect(Collectors.toList()))
                 .keywords(paper.getKeywords().stream().map(Keyword::getName).collect(Collectors.toList()))
+                .source(paper.getSource() != null ? paper.getSource().name() : null)
+                .uploadStatus(paper.getUploadStatus() != null ? paper.getUploadStatus().name() : null)
+                .rejectionReason(paper.getRejectionReason())
                 .build();
     }
 

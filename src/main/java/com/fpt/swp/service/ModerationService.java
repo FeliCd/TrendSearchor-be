@@ -72,6 +72,22 @@ public class ModerationService {
             );
         }
 
+        // Notify all other active users about the new paper
+        List<Long> allUserIds = userRepository.findAll().stream()
+                .filter(u -> u.getStatus() == UserStatus.ACTIVE && 
+                        (paper.getUploadedBy() == null || !u.getId().equals(paper.getUploadedBy().getId())))
+                .map(User::getId)
+                .toList();
+
+        if (!allUserIds.isEmpty()) {
+            notificationService.createBulkNotifications(
+                    allUserIds,
+                    NotificationType.NEW_PAPER,
+                    "New Paper Published!",
+                    String.format("A new paper titled \"%s\" is now available on TrendSearchor.", paper.getTitle())
+            );
+        }
+
         return saved;
     }
 

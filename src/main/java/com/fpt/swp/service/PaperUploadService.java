@@ -53,21 +53,19 @@ public class PaperUploadService {
                 .openAccess(true)
                 .build();
 
-        // Link authors
-        if (request.getAuthors() != null && !request.getAuthors().isEmpty()) {
-            Set<Author> authors = new HashSet<>();
-            for (String authorName : request.getAuthors()) {
-                String normalized = authorName.trim();
-                if (normalized.isEmpty()) continue;
+        // Link author from uploader's profile
+        String authorName = uploader.getFullName() != null && !uploader.getFullName().trim().isEmpty() 
+                ? uploader.getFullName().trim() 
+                : uploader.getMail();
                 
-                Author author = Author.builder()
-                        .name(normalized)
-                        .build();
-                author = authorRepository.save(author);
-                authors.add(author);
-            }
-            paper.setAuthors(authors);
-        }
+        Author author = Author.builder()
+                .name(authorName)
+                .build();
+        author = authorRepository.save(author);
+        
+        Set<Author> authors = new HashSet<>();
+        authors.add(author);
+        paper.setAuthors(authors);
 
         // Link keywords
         if (request.getKeywords() != null && !request.getKeywords().isEmpty()) {

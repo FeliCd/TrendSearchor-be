@@ -19,7 +19,7 @@ public class PaperUploadRequest {
 
     private Integer year;
 
-    private List<String> authors;
+
 
     private List<String> keywords;
 
