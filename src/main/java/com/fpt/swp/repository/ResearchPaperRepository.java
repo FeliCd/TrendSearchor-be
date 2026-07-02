@@ -18,6 +18,24 @@ public interface ResearchPaperRepository extends JpaRepository<ResearchPaper, Lo
     @Query("SELECT p FROM ResearchPaper p WHERE p.status = :status")
     Page<ResearchPaper> findByStatus(@Param("status") PaperStatus status, Pageable pageable);
 
+    @Query("SELECT p FROM ResearchPaper p WHERE p.status = com.fpt.swp.model.PaperStatus.PENDING AND " +
+           "(:search IS NULL OR :search = '' OR " +
+           "LOWER(p.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(p.uploadedBy.mail) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(p.uploadedBy.fullName) LIKE LOWER(CONCAT('%', :search, '%')))")
+    Page<ResearchPaper> findPendingWithSearch(@Param("search") String search, Pageable pageable);
+
+    @Query("SELECT p FROM ResearchPaper p WHERE p.status != com.fpt.swp.model.PaperStatus.PENDING AND " +
+           "(:status IS NULL OR p.status = :status) AND " +
+           "(:search IS NULL OR :search = '' OR " +
+           "LOWER(p.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(p.uploadedBy.mail) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(p.uploadedBy.fullName) LIKE LOWER(CONCAT('%', :search, '%')))")
+    Page<ResearchPaper> findHistoryWithSearchAndStatus(
+            @Param("search") String search,
+            @Param("status") PaperStatus status,
+            Pageable pageable);
+
     @Query("SELECT p FROM ResearchPaper p WHERE p.uploadedBy.id = :userId ORDER BY p.createdAt DESC")
     Page<ResearchPaper> findByUploadedById(@Param("userId") Long userId, Pageable pageable);
 
@@ -28,7 +46,7 @@ public interface ResearchPaperRepository extends JpaRepository<ResearchPaper, Lo
     @Query("SELECT p FROM ResearchPaper p WHERE LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%')) AND p.status = com.fpt.swp.model.PaperStatus.APPROVED")
     Page<ResearchPaper> searchByTitle(@Param("query") String query, Pageable pageable);
 
-    @Query("SELECT p FROM ResearchPaper p WHERE (LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(p.abstractText) LIKE LOWER(CONCAT('%', :query, '%'))) AND p.status = com.fpt.swp.model.PaperStatus.APPROVED")
+    @Query("SELECT p FROM ResearchPaper p WHERE (LOWER(p.title) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(p.abstractText) LIKE LOWER(CONCAT('%', :query, '%'))) AND p.status = com.fpt.swp.model.PaperStatus.APPROVED ORDER BY p.isSelfPublished DESC")
     Page<ResearchPaper> searchApprovedLocalPapers(@Param("query") String query, Pageable pageable);
 
     @Query("SELECT p FROM ResearchPaper p WHERE p.year = :year AND p.status = com.fpt.swp.model.PaperStatus.APPROVED")
@@ -60,4 +78,7 @@ public interface ResearchPaperRepository extends JpaRepository<ResearchPaper, Lo
 
     @Query("SELECT p FROM ResearchPaper p WHERE p.status = com.fpt.swp.model.PaperStatus.APPROVED ORDER BY p.citationCount DESC")
     Page<ResearchPaper> findTopByCitations(Pageable pageable);
+
+    @Query("SELECT p FROM ResearchPaper p WHERE p.status != com.fpt.swp.model.PaperStatus.PENDING ORDER BY p.updatedAt DESC")
+    Page<ResearchPaper> findModerationHistory(Pageable pageable);
 }

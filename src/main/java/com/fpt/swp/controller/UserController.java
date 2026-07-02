@@ -85,6 +85,17 @@ public class UserController {
         return ResponseEntity.ok(userService.updateUserRole(id, req.getRole()));
     }
 
+    // PATCH /api/admin/users/{id}/moderator — Update moderator status
+    @PatchMapping("/{id}/moderator")
+    public ResponseEntity<?> updateModeratorStatus(@PathVariable Long id,
+                                                   @RequestBody java.util.Map<String, Boolean> req) {
+        Boolean isModerator = req.get("isModerator");
+        if (isModerator == null) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", "isModerator field is required"));
+        }
+        return ResponseEntity.ok(userService.updateModeratorStatus(id, isModerator));
+    }
+
     // 3.8 POST /api/admin/users/{id}/reset-password — Admin reset password
     @PostMapping("/{id}/reset-password")
     public ResponseEntity<?> resetPassword(@PathVariable Long id) {

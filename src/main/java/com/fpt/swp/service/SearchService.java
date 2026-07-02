@@ -401,6 +401,7 @@ public class SearchService {
                 .keywords(paper.getKeywords().stream().map(Keyword::getName).collect(Collectors.toList()))
                 .status(paper.getStatus() != null ? paper.getStatus().name() : null)
                 .uploadedBy(paper.getUploadedBy() != null ? paper.getUploadedBy().getMail() : null)
+                .isSelfPublished(paper.getIsSelfPublished())
                 .statusComments(paper.getStatusComments())
                 .build();
     }

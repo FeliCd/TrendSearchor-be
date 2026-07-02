@@ -43,4 +43,7 @@ public interface UserFollowRepository extends JpaRepository<UserFollow, Long> {
 
     @Query("SELECT f.user.id FROM UserFollow f WHERE f.topic.id = :topicId")
     java.util.List<Long> findUserIdsByTopicId(@Param("topicId") Long topicId);
+
+    @Query("SELECT f.user.id FROM UserFollow f WHERE f.journal.id = :journalId")
+    java.util.List<Long> findUserIdsByJournalId(@Param("journalId") Long journalId);
 }

@@ -22,5 +22,6 @@ public class PaperDto {
     private Boolean isBookmarked;
     private String status;
     private String uploadedBy;
+    private Boolean isSelfPublished;
     private String statusComments;
 }

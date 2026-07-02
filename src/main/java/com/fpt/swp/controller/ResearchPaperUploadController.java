@@ -63,10 +63,42 @@ public class ResearchPaperUploadController {
     @GetMapping("/api/admin/papers/pending")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<PaperDto>> getPendingPapers(
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Page<PaperDto> papers = uploadService.getPendingPapers(PageRequest.of(page, size));
+        Page<PaperDto> papers = uploadService.getPendingPapers(search, PageRequest.of(page, size));
         return ResponseEntity.ok(papers);
+    }
+
+    @GetMapping("/api/admin/papers/history")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<PaperDto>> getModerationHistory(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        com.fpt.swp.model.PaperStatus paperStatus = null;
+        if (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) {
+            try {
+                paperStatus = com.fpt.swp.model.PaperStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // ignore invalid status
+            }
+        }
+        Page<PaperDto> papers = uploadService.getModerationHistory(search, paperStatus, PageRequest.of(page, size));
+        return ResponseEntity.ok(papers);
+    }
+
+    @PostMapping("/api/admin/papers/{id}/revoke")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<PaperDto> revokePaper(
+            @PathVariable Long id) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User admin = userRepository.findByMail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+
+        PaperDto revoked = uploadService.revokePaper(id, admin);
+        return ResponseEntity.ok(revoked);
     }
 
     @PostMapping("/api/admin/papers/{id}/approve")

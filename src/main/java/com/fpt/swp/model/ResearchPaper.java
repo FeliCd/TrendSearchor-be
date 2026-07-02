@@ -109,6 +109,10 @@ public class ResearchPaper {
     @JoinColumn(name = "approved_by_id")
     private User approvedBy;
 
+    @Column(name = "is_self_published", nullable = false)
+    @Builder.Default
+    private Boolean isSelfPublished = false;
+
     @Column(name = "status_comments", columnDefinition = "TEXT")
     private String statusComments;
 

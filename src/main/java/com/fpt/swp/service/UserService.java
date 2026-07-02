@@ -196,6 +196,13 @@ public class UserService {
         return "123456";
     }
 
+    public UserResponse updateModeratorStatus(Long id, boolean isModerator) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + id));
+        user.setIsModerator(isModerator);
+        return UserResponse.fromUser(userRepository.save(user));
+    }
+
     // ─── Helper: Build JPA Specification for filtering ───────────────────────
     private Specification<User> buildSpecification(String role, String status, String search) {
         Specification<User> spec = Specification.where(null);
