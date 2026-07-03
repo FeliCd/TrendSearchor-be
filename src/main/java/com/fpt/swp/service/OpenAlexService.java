@@ -29,14 +29,14 @@ public class OpenAlexService {
     }
 
     private String buildUrl(String path, Map<String, String> params) {
-        StringBuilder sb = new StringBuilder(BASE_URL).append(path);
-        sb.append("?mailto=").append(mailto);
+        org.springframework.web.util.UriComponentsBuilder builder = org.springframework.web.util.UriComponentsBuilder.fromHttpUrl(BASE_URL).path(path)
+                .queryParam("mailto", mailto);
         if (params != null) {
             for (Map.Entry<String, String> e : params.entrySet()) {
-                sb.append("&").append(e.getKey()).append("=").append(e.getValue());
+                builder.queryParam(e.getKey(), e.getValue());
             }
         }
-        return sb.toString();
+        return builder.build().encode().toUriString();
     }
 
     public Map<String, Object> searchPapersRaw(String query, int offset, int limit) {
@@ -47,14 +47,17 @@ public class OpenAlexService {
                                                Integer year, Integer yearFrom, Integer yearTo,
                                                String dateFromStr, String dateToStr,
                                                String journal, String author, String sortBy) {
-        String encodedQuery = query.replace(" ", "%20");
+        
+        if (journal != null && !journal.isBlank() && !journal.toLowerCase().matches("^(https://openalex\\.org/)?s\\d+$")) {
+            query = query + " " + journal;
+        }
 
         String filterStr = buildFilterString(year, yearFrom, yearTo, dateFromStr, dateToStr, journal, author);
         String sortStr = buildSortString(sortBy);
         int pageNum = (offset / limit) + 1;
 
         String cacheKey = CACHE_PREFIX_SEARCH
-                + encodedQuery + ":"
+                + query.replace(" ", "%20") + ":"
                 + filterStr.replace(" ", "_").replace(":", "-") + ":"
                 + sortStr.replace(" ", "_").replace(":", "-") + ":"
                 + offset + ":" + limit;
@@ -83,7 +86,7 @@ public class OpenAlexService {
         }
 
         Map<String, String> params = new LinkedHashMap<>();
-        params.put("search", encodedQuery);
+        params.put("search", query);
         params.put("filter", "language:en" + (filterStr.isEmpty() ? "" : "," + filterStr));
         params.put("sort", sortStr);
         params.put("per-page", String.valueOf(limit));
@@ -137,7 +140,9 @@ public class OpenAlexService {
 
         String id = openAlexId.startsWith("https://openalex.org/")
                 ? openAlexId : BASE_URL + "/works/" + openAlexId;
-        String url = id + "?mailto=" + mailto;
+        String url = org.springframework.web.util.UriComponentsBuilder.fromHttpUrl(id)
+                .queryParam("mailto", mailto)
+                .build().encode().toUriString();
 
         log.debug("OpenAlex fetching paper: id={}", openAlexId);
 
@@ -191,11 +196,17 @@ public class OpenAlexService {
         }
 
         if (journal != null && !journal.isBlank()) {
-            filters.add("primary_location.source.id:" + journal);
+            if (journal.toLowerCase().matches("^(https://openalex\\.org/)?s\\d+$")) {
+                filters.add("primary_location.source.id:" + journal);
+            }
         }
 
         if (author != null && !author.isBlank()) {
-            filters.add("authorships.author.id:" + author);
+            if (author.toLowerCase().matches("^(https://openalex\\.org/)?a\\d+$")) {
+                filters.add("authorships.author.id:" + author);
+            } else {
+                filters.add("raw_author_name.search:" + author);
+            }
         }
 
         return String.join(",", filters);
@@ -405,8 +416,7 @@ public class OpenAlexService {
      * Falls back to paginated search if group_by is not supported.
      */
     public Map<String, Object> getWorksCountByYear(String query, Integer startYear, Integer endYear) {
-        String encodedQuery = query.replace(" ", "%20");
-        String cacheKey = "oa:groupby:" + encodedQuery + ":" + startYear + ":" + endYear;
+        String cacheKey = "oa:groupby:" + query.replace(" ", "%20") + ":" + startYear + ":" + endYear;
 
         Optional<String> cached = cacheService.get(cacheKey, String.class);
         if (cached.isPresent()) {
@@ -420,21 +430,21 @@ public class OpenAlexService {
         }
 
         try {
-            StringBuilder urlBuilder = new StringBuilder(BASE_URL)
-                    .append("/works?search=").append(encodedQuery)
-                    .append("&mailto=").append(mailto)
-                    .append("&per-page=200")
-                    .append("&group_by=publication_year");
+            org.springframework.web.util.UriComponentsBuilder builder = org.springframework.web.util.UriComponentsBuilder.fromHttpUrl(BASE_URL).path("/works")
+                    .queryParam("search", query)
+                    .queryParam("mailto", mailto)
+                    .queryParam("per-page", "200")
+                    .queryParam("group_by", "publication_year");
 
             if (startYear != null && startYear > 0 && endYear != null && endYear > 0) {
-                urlBuilder.append("&filter=publication_year:").append(startYear).append("-").append(endYear);
+                builder.queryParam("filter", "publication_year:" + startYear + "-" + endYear);
             } else if (startYear != null && startYear > 0) {
-                urlBuilder.append("&filter=publication_year:>").append(startYear - 1);
+                builder.queryParam("filter", "publication_year:>" + (startYear - 1));
             } else if (endYear != null && endYear > 0) {
-                urlBuilder.append("&filter=publication_year:<").append(endYear + 1);
+                builder.queryParam("filter", "publication_year:<" + (endYear + 1));
             }
 
-            String url = urlBuilder.toString();
+            String url = builder.build().encode().toUriString();
             log.info("OpenAlex group-by: query={}, startYear={}, endYear={}", query, startYear, endYear);
 
             String responseBody = retryHandler.executeWithRetryRaw("openalex/groupby", url);

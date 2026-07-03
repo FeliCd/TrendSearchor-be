@@ -40,21 +40,21 @@ public class ApiRetryHandler {
 
     public <T> Optional<T> executeWithRetry(String endpoint, String url, Class<T> responseType) {
         return executeWithRetry(endpoint, () -> {
-            ResponseEntity<T> response = restTemplate.getForEntity(url, responseType);
+            ResponseEntity<T> response = restTemplate.getForEntity(java.net.URI.create(url), responseType);
             return Optional.ofNullable(response.getBody());
         }).or(() -> Optional.empty());
     }
 
     public String executeWithRetryRaw(String endpoint, String url) {
         return executeWithRetry(endpoint, () -> {
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            ResponseEntity<String> response = restTemplate.getForEntity(java.net.URI.create(url), String.class);
             return Optional.ofNullable(response.getBody());
         }).orElse(null);
     }
 
     public String executeWithRetryRaw(String endpoint, String url, RestTemplate customRestTemplate) {
         return executeWithRetry(endpoint, () -> {
-            ResponseEntity<String> response = customRestTemplate.getForEntity(url, String.class);
+            ResponseEntity<String> response = customRestTemplate.getForEntity(java.net.URI.create(url), String.class);
             return Optional.ofNullable(response.getBody());
         }).orElse(null);
     }

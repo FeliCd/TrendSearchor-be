@@ -32,6 +32,8 @@ public class OpenApiConfig {
                                 .type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer")
                                 .bearerFormat("JWT")))
+                // Local dev server first — users can switch to production in the Swagger dropdown
+                .addServersItem(new Server().url("http://localhost:8080").description("Local Development"))
                 .addServersItem(new Server().url(baseUrl).description("Production Server"));
 
         return openApi;

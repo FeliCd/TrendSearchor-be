@@ -25,7 +25,7 @@ public class AppConfig {
                 .build();
     }
 
-    @Bean("semanticScholarRestTemplate")
+    @Bean(name = "semanticScholarRestTemplate")
     public RestTemplate semanticScholarRestTemplate(
             RestTemplateBuilder builder,
             @Value("${app.semantic-scholar.api-key:}") String apiKey) {
@@ -39,6 +39,28 @@ public class AppConfig {
                     if (apiKey != null && !apiKey.isBlank()) {
                         request.getHeaders().set("x-api-key", apiKey);
                     }
+                    return execution.execute(request, body);
+                })
+                .build();
+    }
+
+    @Bean(name = "openRouterRestTemplate")
+    public RestTemplate openRouterRestTemplate(
+            RestTemplateBuilder builder,
+            @Value("${app.openrouter.api-key:}") String apiKey) {
+        // AI responses can be slow — use a longer read timeout
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(15));
+        factory.setReadTimeout(Duration.ofSeconds(120));
+
+        return builder
+                .requestFactory(() -> factory)
+                .additionalInterceptors((request, body, execution) -> {
+                    if (apiKey != null && !apiKey.isBlank()) {
+                        request.getHeaders().set("Authorization", "Bearer " + apiKey);
+                    }
+                    request.getHeaders().set("HTTP-Referer", "https://trendsearchor.fpt.edu.vn");
+                    request.getHeaders().set("X-Title", "TrendSearchor");
                     return execution.execute(request, body);
                 })
                 .build();
