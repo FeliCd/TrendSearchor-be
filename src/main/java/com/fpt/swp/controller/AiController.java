@@ -1,7 +1,9 @@
 package com.fpt.swp.controller;
 
+import com.fpt.swp.dto.PaperDto;
 import com.fpt.swp.dto.PaperSearchResponse;
 import com.fpt.swp.dto.ai.*;
+import java.util.List;
 import com.fpt.swp.service.AiService;
 import com.fpt.swp.util.AuthUtils;
 import jakarta.validation.Valid;
@@ -102,6 +104,20 @@ public class AiController {
             @Valid @RequestBody TrendQaRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
         TrendQaResponse response = aiService.answerTrendQuestion(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/summarize")
+    public ResponseEntity<PaperSummaryResponse> summarizePaper(
+            @RequestBody PaperSummaryRequest request) {
+        PaperSummaryResponse response = aiService.summarizePaper(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/rerank")
+    public ResponseEntity<List<PaperDto>> rerankPapers(
+            @RequestBody PaperRerankRequest request) {
+        List<PaperDto> response = aiService.rerankPapers(request);
         return ResponseEntity.ok(response);
     }
 }

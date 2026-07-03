@@ -31,4 +31,6 @@ public class PaperDto {
     private String uploadedBy;
     private Boolean isSelfPublished;
     private String statusComments;
+    private Integer aiRelevanceScore;
+    private String aiRelevanceReason;
 }

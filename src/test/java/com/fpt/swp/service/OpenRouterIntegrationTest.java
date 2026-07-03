@@ -51,8 +51,8 @@ class OpenRouterIntegrationTest {
 
     @Test
     void openRouterClient_simplePing_shouldReturnResponse() {
-        if (apiKey == null || apiKey.isBlank()) {
-            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set.");
+        if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("test-")) {
+            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set or using placeholder test key.");
             return;
         }
 
@@ -71,8 +71,8 @@ class OpenRouterIntegrationTest {
 
     @Test
     void abstractAssist_cleanup_shouldReturnImprovedText() {
-        if (apiKey == null || apiKey.isBlank()) {
-            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set.");
+        if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("test-")) {
+            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set or using placeholder test key.");
             return;
         }
 
@@ -97,8 +97,8 @@ class OpenRouterIntegrationTest {
 
     @Test
     void abstractAssist_evaluate_shouldReturnScoreAndFeedback() {
-        if (apiKey == null || apiKey.isBlank()) {
-            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set.");
+        if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("test-")) {
+            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set or using placeholder test key.");
             return;
         }
 
@@ -125,8 +125,8 @@ class OpenRouterIntegrationTest {
 
     @Test
     void naturalLanguageSearch_shouldExtractParamsAndReturnResults() {
-        if (apiKey == null || apiKey.isBlank()) {
-            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set.");
+        if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("test-")) {
+            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set or using placeholder test key.");
             return;
         }
 
@@ -147,8 +147,8 @@ class OpenRouterIntegrationTest {
 
     @Test
     void trendQa_withKeyword_shouldReturnAnalysis() {
-        if (apiKey == null || apiKey.isBlank()) {
-            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set.");
+        if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("test-")) {
+            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set or using placeholder test key.");
             return;
         }
 
