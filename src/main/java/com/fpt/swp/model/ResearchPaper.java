@@ -101,11 +101,6 @@ public class ResearchPaper {
     @Column(name = "upload_status", length = 20)
     private UploadStatus uploadStatus;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "uploaded_by")
-    @com.fasterxml.jackson.annotation.JsonIgnore
-    private User uploadedBy;
-
     @Column(name = "rejection_reason", length = 500)
     private String rejectionReason;
 
@@ -127,6 +122,7 @@ public class ResearchPaper {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uploaded_by_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private User uploadedBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
