@@ -1,5 +1,6 @@
 package com.fpt.swp.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -43,6 +44,7 @@ public class Journal {
 
     @ManyToMany(mappedBy = "journals", fetch = FetchType.LAZY)
     @Builder.Default
+    @JsonIgnore
     private Set<ResearchPaper> papers = new HashSet<>();
 
     @Column(name = "created_at", updatable = false)
