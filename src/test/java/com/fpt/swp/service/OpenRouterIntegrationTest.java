@@ -136,7 +136,7 @@ class OpenRouterIntegrationTest {
 
         PaperSearchResponse response = aiService.naturalLanguageSearch(request, null);
 
-        System.out.println(">>> NL Search result count: " + (response != null ? response.getTotalResults() : "null"));
+        System.out.println(">>> NL Search result count: " + (response != null ? response.getTotal() : "null"));
         assertThat(response).isNotNull();
         System.out.println("✅ FR-10.1 NL Search: PASSED");
     }
