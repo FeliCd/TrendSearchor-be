@@ -156,13 +156,12 @@ public class SearchController {
     }
 
     @GetMapping("/topics")
-    public ResponseEntity<?> getTopics(
+    public ResponseEntity<Page<com.fpt.swp.model.ResearchTopic>> getTopics(
+            @RequestParam(required = false) String query,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        return ResponseEntity.ok(searchService.searchLocalPapers(".", page, size)
-                .map(p -> (Object) com.fpt.swp.model.ResearchTopic.builder()
-                        .id(p.getId()).name(p.getTitle()).build()));
+        return ResponseEntity.ok(searchService.searchTopics(query, page, size));
     }
 
     @GetMapping("/top-papers")

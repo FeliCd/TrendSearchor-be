@@ -1,0 +1,1 @@
+﻿ALTER TABLE research_topics ADD COLUMN is_approved BOOLEAN DEFAULT TRUE;

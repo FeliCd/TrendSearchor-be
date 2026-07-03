@@ -3,6 +3,7 @@ package com.fpt.swp.service;
 import com.fpt.swp.dto.ModerationStatsDto;
 import com.fpt.swp.model.*;
 import com.fpt.swp.repository.ResearchPaperRepository;
+import com.fpt.swp.repository.ResearchTopicRepository;
 import com.fpt.swp.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class ModerationService {
 
     private final ResearchPaperRepository paperRepository;
     private final UserRepository userRepository;
+    private final ResearchTopicRepository topicRepository;
     private final NotificationService notificationService;
 
     /**
@@ -57,6 +59,17 @@ public class ModerationService {
 
         paper.setUploadStatus(UploadStatus.APPROVED);
         paper.setRejectionReason(null);
+        
+        // Approve any pending topics associated with this paper
+        if (paper.getTopics() != null && !paper.getTopics().isEmpty()) {
+            for (ResearchTopic topic : paper.getTopics()) {
+                if (topic.getIsApproved() != null && !topic.getIsApproved()) {
+                    topic.setIsApproved(true);
+                    topicRepository.save(topic);
+                }
+            }
+        }
+        
         ResearchPaper saved = paperRepository.save(paper);
 
         log.info("Paper approved: id={}, title='{}', by moderatorId={}", paperId, paper.getTitle(), moderatorId);

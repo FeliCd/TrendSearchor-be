@@ -26,6 +26,7 @@ public class SearchService {
     private final UserFollowRepository followRepository;
     private final RecentSearchRepository searchRepository;
     private final UserRepository userRepository;
+    private final ResearchTopicRepository topicRepository;
 
     public SearchService(OpenAlexService openAlexService,
                          DataSyncService dataSyncService,
@@ -36,7 +37,8 @@ public class SearchService {
                          BookmarkRepository bookmarkRepository,
                          UserFollowRepository followRepository,
                          RecentSearchRepository searchRepository,
-                         UserRepository userRepository) {
+                         UserRepository userRepository,
+                         ResearchTopicRepository topicRepository) {
         this.openAlexService = openAlexService;
         this.dataSyncService = dataSyncService;
         this.paperRepository = paperRepository;
@@ -47,6 +49,7 @@ public class SearchService {
         this.followRepository = followRepository;
         this.searchRepository = searchRepository;
         this.userRepository = userRepository;
+        this.topicRepository = topicRepository;
     }
 
     @Transactional
@@ -201,6 +204,14 @@ public class SearchService {
     @Transactional(readOnly = true)
     public Page<Keyword> searchKeywords(String query, int page, int size) {
         return keywordRepository.searchByName(query, PageRequest.of(page, size));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ResearchTopic> searchTopics(String query, int page, int size) {
+        if (query == null || query.isBlank()) {
+            return topicRepository.findByIsApprovedTrue(PageRequest.of(page, size));
+        }
+        return topicRepository.findByIsApprovedTrueAndNameContainingIgnoreCase(query, PageRequest.of(page, size));
     }
 
     @Transactional(readOnly = true)

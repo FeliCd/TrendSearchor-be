@@ -25,4 +25,8 @@ public interface ResearchTopicRepository extends JpaRepository<ResearchTopic, Lo
 
     @Query("SELECT t FROM ResearchTopic t ORDER BY t.popularityScore DESC")
     Page<ResearchTopic> findTopByPopularity(Pageable pageable);
+
+    Page<ResearchTopic> findByIsApprovedTrue(Pageable pageable);
+
+    Page<ResearchTopic> findByIsApprovedTrueAndNameContainingIgnoreCase(String name, Pageable pageable);
 }

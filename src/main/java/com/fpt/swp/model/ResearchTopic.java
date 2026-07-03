@@ -34,6 +34,10 @@ public class ResearchTopic {
     @Builder.Default
     private Double popularityScore = 0.0;
 
+    @Column(name = "is_approved")
+    @Builder.Default
+    private Boolean isApproved = true;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

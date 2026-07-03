@@ -4,6 +4,7 @@ import com.fpt.swp.dto.PaperUploadRequest;
 import com.fpt.swp.model.*;
 import com.fpt.swp.repository.KeywordRepository;
 import com.fpt.swp.repository.ResearchPaperRepository;
+import com.fpt.swp.repository.ResearchTopicRepository;
 import com.fpt.swp.repository.UserRepository;
 import com.fpt.swp.repository.AuthorRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -28,6 +29,7 @@ public class PaperUploadService {
 
     private final ResearchPaperRepository paperRepository;
     private final KeywordRepository keywordRepository;
+    private final ResearchTopicRepository topicRepository;
     private final UserRepository userRepository;
     private final AuthorRepository authorRepository;
     private final NotificationService notificationService;
@@ -58,10 +60,12 @@ public class PaperUploadService {
                 ? uploader.getFullName().trim() 
                 : uploader.getMail();
                 
-        Author author = Author.builder()
-                .name(authorName)
-                .build();
-        author = authorRepository.save(author);
+        Author author = authorRepository.findFirstByName(authorName)
+                .orElseGet(() -> authorRepository.save(
+                        Author.builder()
+                                .name(authorName)
+                                .build()
+                ));
         
         Set<Author> authors = new HashSet<>();
         authors.add(author);
@@ -84,6 +88,25 @@ public class PaperUploadService {
                 keywords.add(keyword);
             }
             paper.setKeywords(keywords);
+        }
+
+        // Link topics
+        if (request.getTopics() != null && !request.getTopics().isEmpty()) {
+            Set<ResearchTopic> topics = new HashSet<>();
+            for (String topicName : request.getTopics()) {
+                String normalized = topicName.trim();
+                if (normalized.isEmpty()) continue;
+
+                ResearchTopic topic = topicRepository.findByName(normalized)
+                        .orElseGet(() -> topicRepository.save(
+                                ResearchTopic.builder()
+                                        .name(normalized)
+                                        .isApproved(false)
+                                        .build()
+                        ));
+                topics.add(topic);
+            }
+            paper.setTopics(topics);
         }
 
         ResearchPaper saved = paperRepository.save(paper);

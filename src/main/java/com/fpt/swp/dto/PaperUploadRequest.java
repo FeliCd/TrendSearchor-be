@@ -23,6 +23,8 @@ public class PaperUploadRequest {
 
     private List<String> keywords;
 
+    private List<String> topics;
+
     @URL(message = "pdfUrl must be a valid URL")
     private String pdfUrl;
 }
