@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 public class SearchService {
 
     private final OpenAlexService openAlexService;
+    private final SemanticScholarService semanticScholarService;
     private final DataSyncService dataSyncService;
     private final ResearchPaperRepository paperRepository;
     private final AuthorRepository authorRepository;
@@ -29,6 +30,7 @@ public class SearchService {
     private final ResearchTopicRepository topicRepository;
 
     public SearchService(OpenAlexService openAlexService,
+                         SemanticScholarService semanticScholarService,
                          DataSyncService dataSyncService,
                          ResearchPaperRepository paperRepository,
                          AuthorRepository authorRepository,
@@ -40,6 +42,7 @@ public class SearchService {
                          UserRepository userRepository,
                          ResearchTopicRepository topicRepository) {
         this.openAlexService = openAlexService;
+        this.semanticScholarService = semanticScholarService;
         this.dataSyncService = dataSyncService;
         this.paperRepository = paperRepository;
         this.authorRepository = authorRepository;
@@ -54,19 +57,57 @@ public class SearchService {
 
     @Transactional
     public PaperSearchResponse searchPapers(PaperSearchRequest request, Long userId) {
-        // Fetch local approved uploads if query is present
-        List<PaperDto> localPapers = new ArrayList<>();
-        if (request.getQuery() != null && !request.getQuery().isBlank()) {
-            List<ResearchPaper> localUploads = paperRepository.searchApprovedUploads(
-                    request.getQuery(), 
-                    PageRequest.of(request.getPage(), request.getSize())
-            );
-            localPapers = localUploads.stream()
+        List<PaperDto> localApprovedPapers = new ArrayList<>();
+        if (request.getPage() == 0) {
+            Page<ResearchPaper> localPage;
+            if (request.getQuery() != null && !request.getQuery().isBlank()) {
+                localPage = paperRepository.searchApprovedLocalPapers(request.getQuery(), PageRequest.of(0, 100));
+            } else {
+                localPage = paperRepository.findByStatus(PaperStatus.APPROVED, PageRequest.of(0, 100));
+            }
+            localApprovedPapers = localPage.getContent().stream()
+                    .filter(p -> {
+                        // Filter by year
+                        if (request.getYear() != null && request.getYear() > 0) {
+                            if (p.getYear() == null || !p.getYear().equals(request.getYear())) {
+                                return false;
+                            }
+                        }
+                        // Filter by year range (from yearFrom to yearTo)
+                        if (request.getYearFrom() != null && request.getYearFrom() > 0) {
+                            if (p.getYear() == null || p.getYear() < request.getYearFrom()) {
+                                return false;
+                            }
+                        }
+                        if (request.getYearTo() != null && request.getYearTo() > 0) {
+                            if (p.getYear() == null || p.getYear() > request.getYearTo()) {
+                                return false;
+                            }
+                        }
+                        // Filter by journal
+                        if (request.getJournal() != null && !request.getJournal().isBlank()) {
+                            if (p.getJournals() == null) return false;
+                            boolean hasJournal = p.getJournals().stream()
+                                    .anyMatch(j -> j.getName() != null && j.getName().toLowerCase().contains(request.getJournal().toLowerCase()));
+                            if (!hasJournal) return false;
+                        }
+                        // Filter by author
+                        if (request.getAuthor() != null && !request.getAuthor().isBlank()) {
+                            if (p.getAuthors() == null) return false;
+                            boolean hasAuthor = p.getAuthors().stream()
+                                    .anyMatch(a -> a.getName() != null && a.getName().toLowerCase().contains(request.getAuthor().toLowerCase()));
+                            if (!hasAuthor) return false;
+                        }
+                        return true;
+                    })
                     .map(this::mapLocalPaperToDto)
                     .collect(Collectors.toList());
+
+            if (localApprovedPapers.size() > request.getSize()) {
+                localApprovedPapers = localApprovedPapers.subList(0, request.getSize());
+            }
         }
 
-        // Fetch external OpenAlex results
         Map<String, Object> rawResult = openAlexService.searchPapersRaw(
                 request.getQuery(),
                 request.getPage() * request.getSize(),
@@ -83,31 +124,69 @@ public class SearchService {
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> rawPapers = findPapersList(rawResult);
-        long total = findTotal(rawResult) + localPapers.size();
+        long total = findTotal(rawResult) + localApprovedPapers.size();
 
-        List<PaperDto> externalPapers = rawPapers.stream()
+        if (rawPapers.isEmpty() && request.getQuery() != null && !request.getQuery().isBlank()) {
+            log.info("OpenAlex returned 0 papers or rate limited. Falling back to SemanticScholar for query: {}", request.getQuery());
+            try {
+                rawResult = semanticScholarService.searchPapersRaw(
+                        request.getQuery(),
+                        request.getPage() * request.getSize(),
+                        request.getSize(),
+                        request.getSortBy(),
+                        request.getYear()
+                );
+                rawPapers = findPapersList(rawResult);
+                total = findTotal(rawResult);
+            } catch (Exception e) {
+                log.warn("SemanticScholar search fallback failed: {}", e.getMessage());
+            }
+        }
+
+        if (rawPapers.isEmpty() && request.getQuery() != null && !request.getQuery().isBlank()) {
+            log.info("SemanticScholar returned 0 papers or rate limited. Falling back to Crossref for query: {}", request.getQuery());
+            try {
+                rawResult = searchCrossrefFallback(
+                        request.getQuery(),
+                        request.getPage() * request.getSize(),
+                        request.getSize()
+                );
+                rawPapers = findPapersList(rawResult);
+                total = findTotal(rawResult);
+            } catch (Exception e) {
+                log.warn("Crossref search fallback failed: {}", e.getMessage());
+            }
+        }
+
+        List<PaperDto> openAlexPapers = rawPapers.stream()
                 .map(p -> mapToPaperDto(p, userId))
                 .collect(Collectors.toList());
 
-        // Merge local papers at the top
-        List<PaperDto> combinedPapers = new ArrayList<>(localPapers);
-        combinedPapers.addAll(externalPapers);
-        
-        // Ensure we respect the requested size (if local papers fill it up, drop some external ones)
-        if (combinedPapers.size() > request.getSize()) {
-            combinedPapers = combinedPapers.subList(0, request.getSize());
+        List<PaperDto> mergedPapers = new ArrayList<>(localApprovedPapers);
+        Set<String> localTitles = localApprovedPapers.stream()
+                .map(p -> p.getTitle().toLowerCase().trim())
+                .collect(Collectors.toSet());
+        for (PaperDto oaPaper : openAlexPapers) {
+            if (oaPaper.getTitle() != null && !localTitles.contains(oaPaper.getTitle().toLowerCase().trim())) {
+                mergedPapers.add(oaPaper);
+            }
         }
 
+        if (mergedPapers.size() > request.getSize()) {
+            mergedPapers = mergedPapers.subList(0, request.getSize());
+        }
+
+        long adjustedTotal = total + localApprovedPapers.size();
         if (userId != null && request.getQuery() != null && !request.getQuery().isBlank()) {
             saveRecentSearch(request.getQuery(), SearchType.PAPER, userId);
         }
 
         return PaperSearchResponse.builder()
-                .papers(combinedPapers)
-                .total(total)
+                .papers(mergedPapers)
+                .total(adjustedTotal)
                 .page(request.getPage())
                 .size(request.getSize())
-                .totalPages((int) Math.ceil((double) total / request.getSize()))
+                .totalPages((int) Math.ceil((double) adjustedTotal / request.getSize()))
                 .build();
     }
 
@@ -131,11 +210,81 @@ public class SearchService {
         if (rawResult.containsKey("meta")) {
             Object meta = rawResult.get("meta");
             if (meta instanceof Map) {
-                Object count = ((Map<String, Object>) meta).get("count");
-                if (count instanceof Number) return ((Number) count).longValue();
+                Object c = ((Map<String, Object>) meta).get("count");
+                if (c instanceof Number) return ((Number) c).longValue();
             }
         }
         return 0L;
+    }
+
+    private Map<String, Object> searchCrossrefFallback(String query, int offset, int limit) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            String encodedQuery = java.net.URLEncoder.encode(query, java.nio.charset.StandardCharsets.UTF_8);
+            String url = "https://api.crossref.org/works?query=" + encodedQuery + "&offset=" + offset + "&rows=" + limit;
+            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+            String responseBody = restTemplate.getForObject(url, String.class);
+            if (responseBody != null) {
+                com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(responseBody);
+                if (root.has("message")) {
+                    com.fasterxml.jackson.databind.JsonNode msg = root.get("message");
+                    long totalCount = msg.has("total-results") ? msg.get("total-results").asLong() : 0;
+                    result.put("total", totalCount);
+                    List<Map<String, Object>> papers = new ArrayList<>();
+                    com.fasterxml.jackson.databind.JsonNode items = msg.get("items");
+                    if (items != null && items.isArray()) {
+                        for (com.fasterxml.jackson.databind.JsonNode item : items) {
+                            Map<String, Object> p = new LinkedHashMap<>();
+                            String doi = item.has("DOI") ? item.get("DOI").asText() : null;
+                            p.put("paperId", doi != null ? "https://doi.org/" + doi : null);
+                            String title = "Untitled";
+                            if (item.has("title") && item.get("title").isArray() && item.get("title").size() > 0) {
+                                title = item.get("title").get(0).asText();
+                            }
+                            p.put("title", title);
+                            String abs = null;
+                            if (item.has("abstract") && !item.get("abstract").isNull()) {
+                                abs = item.get("abstract").asText().replaceAll("<[^>]*>", "");
+                            }
+                            p.put("abstract", abs);
+                            Integer year = null;
+                            if (item.has("created") && item.get("created").has("date-parts")) {
+                                com.fasterxml.jackson.databind.JsonNode dp = item.get("created").get("date-parts");
+                                if (dp.isArray() && dp.size() > 0 && dp.get(0).isArray() && dp.get(0).size() > 0) {
+                                    year = dp.get(0).get(0).asInt();
+                                }
+                            }
+                            p.put("year", year);
+                            p.put("citationCount", item.has("is-referenced-by-count") ? item.get("is-referenced-by-count").asInt() : 0);
+                            p.put("openAccess", true);
+                            p.put("url", item.has("URL") ? item.get("URL").asText() : (doi != null ? "https://doi.org/" + doi : null));
+
+                            List<String> authors = new ArrayList<>();
+                            if (item.has("author") && item.get("author").isArray()) {
+                                for (com.fasterxml.jackson.databind.JsonNode auth : item.get("author")) {
+                                    String given = auth.has("given") ? auth.get("given").asText() : "";
+                                    String family = auth.has("family") ? auth.get("family").asText() : "";
+                                    String name = (given + " " + family).trim();
+                                    if (!name.isEmpty()) authors.add(name);
+                                }
+                            }
+                            p.put("authors", authors);
+                            if (item.has("container-title") && item.get("container-title").isArray() && item.get("container-title").size() > 0) {
+                                p.put("journal", item.get("container-title").get(0).asText());
+                            }
+                            papers.add(p);
+                        }
+                    }
+                    result.put("papers", papers);
+                    return result;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Crossref fallback search failed: {}", e.getMessage());
+        }
+        result.put("total", 0L);
+        result.put("papers", Collections.emptyList());
+        return result;
     }
 
     private PaperDto mapToPaperDto(Map<String, Object> raw, Long userId) {
@@ -263,6 +412,10 @@ public class SearchService {
                 .source(paper.getSource() != null ? paper.getSource().name() : null)
                 .uploadStatus(paper.getUploadStatus() != null ? paper.getUploadStatus().name() : null)
                 .rejectionReason(paper.getRejectionReason())
+                .status(paper.getStatus() != null ? paper.getStatus().name() : null)
+                .uploadedBy(paper.getUploadedBy() != null ? paper.getUploadedBy().getMail() : null)
+                .isSelfPublished(paper.getIsSelfPublished())
+                .statusComments(paper.getStatusComments())
                 .build();
     }
 

@@ -1,7 +1,11 @@
 package com.fpt.swp.dto;
 
-import lombok.*;
 import java.util.List;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
@@ -23,4 +27,8 @@ public class PaperDto {
     private String source;
     private String uploadStatus;
     private String rejectionReason;
+    private String status;
+    private String uploadedBy;
+    private Boolean isSelfPublished;
+    private String statusComments;
 }

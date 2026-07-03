@@ -20,6 +20,7 @@ public interface AuthorRepository extends JpaRepository<Author, Long> {
     Optional<Author> findByOrcid(String orcid);
 
     Optional<Author> findFirstByName(String name);
+    Optional<Author> findByNameIgnoreCase(String name);
 
     @Query("SELECT a FROM Author a WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :query, '%'))")
     Page<Author> searchByName(@Param("query") String query, Pageable pageable);

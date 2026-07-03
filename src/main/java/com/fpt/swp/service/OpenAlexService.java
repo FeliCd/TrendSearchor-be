@@ -86,7 +86,9 @@ public class OpenAlexService {
         }
 
         Map<String, String> params = new LinkedHashMap<>();
-        params.put("search", query);
+        if (query != null && !query.isBlank()) {
+            params.put("search", query);
+        }
         params.put("filter", "language:en" + (filterStr.isEmpty() ? "" : "," + filterStr));
         params.put("sort", sortStr);
         params.put("per-page", String.valueOf(limit));
@@ -198,6 +200,8 @@ public class OpenAlexService {
         if (journal != null && !journal.isBlank()) {
             if (journal.toLowerCase().matches("^(https://openalex\\.org/)?s\\d+$")) {
                 filters.add("primary_location.source.id:" + journal);
+            } else {
+                filters.add("primary_location.source.display_name.search:" + journal);
             }
         }
 

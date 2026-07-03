@@ -155,6 +155,14 @@ public class SearchController {
         return ResponseEntity.ok(searchService.searchKeywords(query, page, size));
     }
 
+    @GetMapping("/topics/search")
+    public ResponseEntity<List<com.fpt.swp.model.Keyword>> searchTopics(
+            @RequestParam String query
+    ) {
+        Page<com.fpt.swp.model.Keyword> pageResult = searchService.searchKeywords(query, 0, 10);
+        return ResponseEntity.ok(pageResult.getContent());
+    }
+
     @GetMapping("/topics")
     public ResponseEntity<Page<com.fpt.swp.model.ResearchTopic>> getTopics(
             @RequestParam(required = false) String query,

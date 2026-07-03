@@ -24,7 +24,8 @@ public class NotificationService {
     @Transactional
     public Notification createNotification(Long userId, NotificationType type, String title, String message) {
         User user = userRepository.findById(userId).orElse(null);
-        if (user == null || Boolean.FALSE.equals(user.getReceiveNotifications())) return null;
+        if (user == null || Boolean.FALSE.equals(user.getReceiveNotifications()))
+            return null;
 
         Notification notification = Notification.builder()
                 .user(user)
@@ -42,7 +43,18 @@ public class NotificationService {
     public void createBulkNotifications(List<Long> userIds, NotificationType type, String title, String message) {
         for (Long userId : userIds) {
             try {
-                createNotification(userId, type, title, message);
+                User user = userRepository.findById(userId).orElse(null);
+                if (user == null || Boolean.FALSE.equals(user.getReceiveNotifications())) {
+                    continue;
+                }
+                Notification notification = Notification.builder()
+                        .user(user)
+                        .notificationType(type)
+                        .title(title)
+                        .message(message)
+                        .isRead(false)
+                        .build();
+                notificationRepository.save(notification);
             } catch (Exception e) {
                 log.error("Failed to create notification for user {}: {}", userId, e.getMessage());
             }
@@ -82,6 +94,16 @@ public class NotificationService {
     @Transactional
     public void markAllAsRead(Long userId) {
         notificationRepository.markAllAsReadByUserId(userId);
+    }
+
+    @Transactional
+    public void deleteNotification(Long id, Long userId) {
+        notificationRepository.deleteByIdAndUserId(id, userId);
+    }
+
+    @Transactional
+    public void deleteAllNotifications(Long userId) {
+        notificationRepository.deleteAllByUserId(userId);
     }
 
     @Transactional(readOnly = true)

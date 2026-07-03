@@ -29,6 +29,7 @@ public class UserResponse {
     private LocalDateTime createdAt;
     private LocalDateTime lastLogin;
     private Boolean receiveNotifications;
+    private Boolean isModerator;
     private String avatarUrl;
     private Boolean mustChangePassword;
 
@@ -47,6 +48,7 @@ public class UserResponse {
                 .createdAt(user.getCreatedAt())
                 .lastLogin(user.getLastLogin())
                 .receiveNotifications(user.getReceiveNotifications())
+                .isModerator(user.getIsModerator())
                 .avatarUrl(user.getAvatarUrl())
                 .mustChangePassword(user.getMustChangePassword())
                 .build();

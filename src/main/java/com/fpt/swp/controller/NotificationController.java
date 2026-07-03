@@ -25,10 +25,10 @@ public class NotificationController {
     public ResponseEntity<Page<Notification>> getNotifications(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         Long userId = authUtils.extractUserId(userDetails);
-        if (userId == null) return ResponseEntity.status(401).build();
+        if (userId == null)
+            return ResponseEntity.status(401).build();
 
         return ResponseEntity.ok(notificationService.getUserNotifications(userId, page, size));
     }
@@ -37,20 +37,20 @@ public class NotificationController {
     public ResponseEntity<Page<Notification>> getUnreadNotifications(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         Long userId = authUtils.extractUserId(userDetails);
-        if (userId == null) return ResponseEntity.status(401).build();
+        if (userId == null)
+            return ResponseEntity.status(401).build();
 
         return ResponseEntity.ok(notificationService.getUnreadNotifications(userId, page, size));
     }
 
     @GetMapping("/unread/count")
     public ResponseEntity<Map<String, Long>> getUnreadCount(
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         Long userId = authUtils.extractUserId(userDetails);
-        if (userId == null) return ResponseEntity.status(401).build();
+        if (userId == null)
+            return ResponseEntity.status(401).build();
 
         return ResponseEntity.ok(Map.of("count", notificationService.getUnreadCount(userId)));
     }
@@ -58,10 +58,10 @@ public class NotificationController {
     @GetMapping("/recent")
     public ResponseEntity<List<Notification>> getRecentNotifications(
             @RequestParam(defaultValue = "5") int limit,
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         Long userId = authUtils.extractUserId(userDetails);
-        if (userId == null) return ResponseEntity.status(401).build();
+        if (userId == null)
+            return ResponseEntity.status(401).build();
 
         return ResponseEntity.ok(notificationService.getRecentNotifications(userId, limit));
     }
@@ -69,10 +69,10 @@ public class NotificationController {
     @PatchMapping("/{id}/read")
     public ResponseEntity<Void> markAsRead(
             @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
+            @AuthenticationPrincipal UserDetails userDetails) {
         Long userId = authUtils.extractUserId(userDetails);
-        if (userId == null) return ResponseEntity.status(401).build();
+        if (userId == null)
+            return ResponseEntity.status(401).build();
 
         notificationService.markAsRead(id, userId);
         return ResponseEntity.ok().build();
@@ -80,12 +80,35 @@ public class NotificationController {
 
     @PatchMapping("/read-all")
     public ResponseEntity<Void> markAllAsRead(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = authUtils.extractUserId(userDetails);
+        if (userId == null)
+            return ResponseEntity.status(401).build();
+
+        notificationService.markAllAsRead(userId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteNotification(
+            @PathVariable Long id,
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         Long userId = authUtils.extractUserId(userDetails);
         if (userId == null) return ResponseEntity.status(401).build();
 
-        notificationService.markAllAsRead(userId);
+        notificationService.deleteNotification(id, userId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping
+    public ResponseEntity<Void> deleteAllNotifications(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        Long userId = authUtils.extractUserId(userDetails);
+        if (userId == null) return ResponseEntity.status(401).build();
+
+        notificationService.deleteAllNotifications(userId);
         return ResponseEntity.ok().build();
     }
 }

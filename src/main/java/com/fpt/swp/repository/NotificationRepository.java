@@ -37,6 +37,16 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("UPDATE Notification n SET n.isRead = true WHERE n.user.id = :userId AND n.isRead = false")
     void markAllAsReadByUserId(@Param("userId") Long userId);
 
+    @Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("DELETE FROM Notification n WHERE n.id = :id AND n.user.id = :userId")
+    void deleteByIdAndUserId(@Param("id") Long id, @Param("userId") Long userId);
+
+    @Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("DELETE FROM Notification n WHERE n.user.id = :userId")
+    void deleteAllByUserId(@Param("userId") Long userId);
+
     @Query("SELECT n FROM Notification n WHERE n.user.id = :userId ORDER BY n.createdAt DESC LIMIT :limit")
     List<Notification> findRecentByUserId(@Param("userId") Long userId, @Param("limit") int limit);
 }
