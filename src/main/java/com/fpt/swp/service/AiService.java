@@ -17,7 +17,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -427,10 +429,54 @@ public class AiService {
     }
 
     public List<PaperDto> rerankPapers(PaperRerankRequest request) {
-        if (request.getPapers() == null || request.getPapers().size() <= 1) {
+        if (request.getPapers() == null || request.getPapers().isEmpty()) {
             return request.getPapers();
         }
-        return request.getPapers();
+        String systemPrompt = "You are an AI research paper relevance evaluator and reranker. Given a user search query and a list of research papers (with ID, title, and abstract), evaluate how relevant each paper is to the query.\n" +
+                "Respond ONLY in valid JSON format as an object containing a list called 'evaluations'. Each item in 'evaluations' must have:\n" +
+                "- id: Long (matching the paper id)\n" +
+                "- score: Integer (relevance score from 0 to 100)\n" +
+                "- reason: String (concise 1-sentence explanation of why it is relevant or not to the query)\n" +
+                "Do not include markdown fences or extra text.";
+
+        StringBuilder userPrompt = new StringBuilder();
+        userPrompt.append("Query: ").append(request.getQuery()).append("\n\nPapers:\n");
+        for (PaperDto p : request.getPapers()) {
+            userPrompt.append("- ID: ").append(p.getId())
+                      .append(" | Title: ").append(p.getTitle() != null ? p.getTitle() : "Untitled")
+                      .append(" | Abstract: ").append(p.getAbstractText() != null ? (p.getAbstractText().length() > 300 ? p.getAbstractText().substring(0, 300) + "..." : p.getAbstractText()) : "No abstract")
+                      .append("\n");
+        }
+
+        RerankAiPayload payload = openRouterClient.chatJson(systemPrompt, userPrompt.toString(), RerankAiPayload.class);
+        if (payload == null || payload.getEvaluations() == null) {
+            log.warn("AI reranking returned null or empty evaluations for query: '{}'", request.getQuery());
+            return request.getPapers();
+        }
+
+        Map<Long, PaperEvaluation> evalMap = payload.getEvaluations().stream()
+                .filter(e -> e.getId() != null)
+                .collect(Collectors.toMap(PaperEvaluation::getId, e -> e, (e1, e2) -> e1));
+
+        List<PaperDto> reranked = new ArrayList<>(request.getPapers());
+        for (PaperDto p : reranked) {
+            PaperEvaluation eval = evalMap.get(p.getId());
+            if (eval != null) {
+                p.setAiRelevanceScore(eval.getScore() != null ? eval.getScore() : 50);
+                p.setAiRelevanceReason(eval.getReason() != null ? eval.getReason() : "Relevant to search query");
+            } else {
+                p.setAiRelevanceScore(50);
+                p.setAiRelevanceReason("Analyzed by AI");
+            }
+        }
+
+        reranked.sort((p1, p2) -> {
+            int s1 = p1.getAiRelevanceScore() != null ? p1.getAiRelevanceScore() : 0;
+            int s2 = p2.getAiRelevanceScore() != null ? p2.getAiRelevanceScore() : 0;
+            return Integer.compare(s2, s1);
+        });
+
+        return reranked;
     }
 
     // =========================================================================
@@ -491,5 +537,21 @@ public class AiService {
         private String author;
         private String journal;
         private Integer year;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class RerankAiPayload {
+        private List<PaperEvaluation> evaluations;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class PaperEvaluation {
+        private Long id;
+        private Integer score;
+        private String reason;
     }
 }
