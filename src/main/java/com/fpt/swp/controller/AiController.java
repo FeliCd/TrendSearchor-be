@@ -36,7 +36,7 @@ public class AiController {
 
     /**
      * AI hỗ trợ viết/review abstract của Researcher.
-     * Các action: CLEANUP | SPELLCHECK | SUGGEST_MISSING | EVALUATE
+     * Các action: SPELLCHECK | SUGGEST_MISSING
      *
      * @param request  action và nội dung abstract
      * @return kết quả xử lý từ AI

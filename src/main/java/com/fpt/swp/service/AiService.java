@@ -58,11 +58,6 @@ public class AiService {
         if (raw == null) {
             String fallbackText = request.getText() != null ? request.getText().trim().replaceAll("\\s+", " ") : "";
             return switch (request.getAction()) {
-                case CLEANUP -> AbstractAssistResponse.builder()
-                        .action(request.getAction().name())
-                        .result(fallbackText)
-                        .feedback("Notice: AI model currently busy/offline. Performed standard formatting and spacing cleanup.")
-                        .build();
                 case SPELLCHECK -> AbstractAssistResponse.builder()
                         .action(request.getAction().name())
                         .result(fallbackText)
@@ -77,11 +72,6 @@ public class AiService {
                         ))
                         .feedback("Notice: AI model currently busy/offline. Showing standard research checklist suggestions.")
                         .build();
-                case EVALUATE -> AbstractAssistResponse.builder()
-                        .action(request.getAction().name())
-                        .score(8)
-                        .feedback("Notice: AI model currently busy/offline. Estimated baseline academic score based on length and structure.")
-                        .build();
             };
         }
 
@@ -90,11 +80,6 @@ public class AiService {
 
     private String buildAbstractSystemPrompt(AbstractAssistRequest.Action action) {
         return switch (action) {
-            case CLEANUP ->
-                "You are an expert academic editor. Clean up and reformat the provided abstract: "
-                + "improve sentence structure, remove redundancy, ensure formal academic tone, "
-                + "and fix minor grammatical issues. Return only the improved abstract text with no additional commentary.";
-
             case SPELLCHECK ->
                 "You are a meticulous proofreader. Identify and fix all spelling and grammar errors in the provided abstract. "
                 + "Return only the corrected text with no additional commentary.";
@@ -104,18 +89,12 @@ public class AiService {
                 + "List the key aspects or information that are missing or underdeveloped in the abstract. "
                 + "Format your response as a JSON object: "
                 + "{\"suggestions\": [\"suggestion 1\", \"suggestion 2\", ...], \"feedback\": \"overall comment\"}";
-
-            case EVALUATE ->
-                "You are a senior academic reviewer. Evaluate the quality of the provided abstract on a scale of 0–10. "
-                + "Consider clarity, completeness, structure, and academic rigor. "
-                + "Format your response as a JSON object: "
-                + "{\"score\": <integer 0-10>, \"feedback\": \"detailed evaluation\"}";
         };
     }
 
     private AbstractAssistResponse parseAbstractResponse(AbstractAssistRequest.Action action, String raw) {
         return switch (action) {
-            case CLEANUP, SPELLCHECK -> AbstractAssistResponse.builder()
+            case SPELLCHECK -> AbstractAssistResponse.builder()
                     .action(action.name())
                     .result(raw.trim())
                     .build();
@@ -131,24 +110,6 @@ public class AiService {
                             .build();
                 } catch (Exception e) {
                     log.warn("Could not parse SUGGEST_MISSING JSON, returning raw text. Error: {}", e.getMessage());
-                    yield AbstractAssistResponse.builder()
-                            .action(action.name())
-                            .feedback(raw)
-                            .build();
-                }
-            }
-
-            case EVALUATE -> {
-                try {
-                    EvaluateAiPayload payload = objectMapper.readValue(
-                            extractJson(raw), EvaluateAiPayload.class);
-                    yield AbstractAssistResponse.builder()
-                            .action(action.name())
-                            .score(payload.getScore())
-                            .feedback(payload.getFeedback())
-                            .build();
-                } catch (Exception e) {
-                    log.warn("Could not parse EVALUATE JSON, returning raw text. Error: {}", e.getMessage());
                     yield AbstractAssistResponse.builder()
                             .action(action.name())
                             .feedback(raw)
@@ -544,13 +505,6 @@ public class AiService {
         private String feedback;
     }
 
-    @Data
-    @NoArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    private static class EvaluateAiPayload {
-        private Integer score;
-        private String feedback;
-    }
 
     @Data
     @NoArgsConstructor
