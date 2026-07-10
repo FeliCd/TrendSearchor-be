@@ -224,30 +224,31 @@ public class ResearchPaperUploadService {
     }
 
     @Transactional
-    public PaperDto revokePaper(Long paperId, User admin) {
+    public PaperDto revokePaper(Long paperId, User admin, String comments) {
         log.info("Admin {} revoking decision on paper {}", admin.getMail(), paperId);
 
         ResearchPaper paper = paperRepository.findById(paperId)
                 .orElseThrow(() -> new EntityNotFoundException("Research paper not found"));
 
-        if (paper.getStatus() == PaperStatus.PENDING) {
-            throw new IllegalStateException("Paper is already pending moderation.");
+        if (paper.getStatus() == PaperStatus.PENDING || paper.getStatus() == PaperStatus.REVOKED) {
+            throw new IllegalStateException("Paper is already pending moderation or revoked.");
         }
 
-        paper.setStatus(PaperStatus.PENDING);
+        paper.setStatus(PaperStatus.REVOKED);
         paper.setApprovedBy(null);
-        paper.setStatusComments(null);
+        paper.setStatusComments(comments);
 
         ResearchPaper savedPaper = paperRepository.save(paper);
 
         // Notify researcher that decision has been revoked
         if (paper.getUploadedBy() != null) {
             try {
+                String reasonStr = (comments != null && !comments.isBlank()) ? " Reason: " + comments : "";
                 notificationService.createNotification(
                         paper.getUploadedBy().getId(),
                         NotificationType.APPROVAL,
                         "Paper Moderation Revoked",
-                        "The decision on your paper \"" + paper.getTitle() + "\" has been revoked by the admin. It is now pending review again."
+                        "The decision on your paper \"" + paper.getTitle() + "\" has been revoked by the admin. It is now marked as revoked." + reasonStr
                 );
             } catch (Exception e) {
                 log.error("Failed to send revocation notification to researcher: {}", e.getMessage());
@@ -261,6 +262,11 @@ public class ResearchPaperUploadService {
     public Page<PaperDto> getMyUploadedPapers(Long userId, Pageable pageable) {
         return paperRepository.findByUploadedById(userId, pageable)
                 .map(this::mapLocalPaperToDto);
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.fpt.swp.dto.ResearcherLeaderboardDto> getTopResearchersLeaderboard(int limit) {
+        return paperRepository.findTopResearchersByApprovedPapersCount(org.springframework.data.domain.PageRequest.of(0, limit));
     }
 
     private PaperDto mapLocalPaperToDto(ResearchPaper paper) {

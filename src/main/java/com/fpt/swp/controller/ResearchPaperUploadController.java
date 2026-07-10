@@ -89,15 +89,23 @@ public class ResearchPaperUploadController {
         return ResponseEntity.ok(papers);
     }
 
+    @GetMapping("/api/papers/leaderboard")
+    public ResponseEntity<java.util.List<com.fpt.swp.dto.ResearcherLeaderboardDto>> getLeaderboard(
+            @RequestParam(defaultValue = "5") int limit) {
+        return ResponseEntity.ok(uploadService.getTopResearchersLeaderboard(limit));
+    }
+
     @PostMapping("/api/admin/papers/{id}/revoke")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PaperDto> revokePaper(
-            @PathVariable Long id) {
+            @PathVariable Long id,
+            @RequestBody(required = false) com.fpt.swp.dto.PaperRevokeRequest request) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User admin = userRepository.findByMail(email)
                 .orElseThrow(() -> new EntityNotFoundException("User not found"));
 
-        PaperDto revoked = uploadService.revokePaper(id, admin);
+        String comments = request != null ? request.getComments() : null;
+        PaperDto revoked = uploadService.revokePaper(id, admin, comments);
         return ResponseEntity.ok(revoked);
     }
 
