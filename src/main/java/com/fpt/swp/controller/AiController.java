@@ -4,8 +4,11 @@ import com.fpt.swp.dto.PaperDto;
 import com.fpt.swp.dto.PaperSearchResponse;
 import com.fpt.swp.dto.ai.*;
 import java.util.List;
+import com.fpt.swp.exception.RateLimitExceededException;
+import com.fpt.swp.service.AiRateLimiter;
 import com.fpt.swp.service.AiService;
 import com.fpt.swp.util.AuthUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +32,21 @@ public class AiController {
 
     private final AiService aiService;
     private final AuthUtils authUtils;
+    private final AiRateLimiter aiRateLimiter;
+
+    /**
+     * Chặn lạm dụng các endpoint AI (gọi LLM trả phí). Giới hạn theo user nếu đã
+     * đăng nhập, ngược lại theo IP client. Vượt hạn mức → 429 Too Many Requests.
+     */
+    private void enforceRateLimit(UserDetails userDetails, HttpServletRequest httpRequest) {
+        Long userId = authUtils.extractUserId(userDetails);
+        String key = userId != null ? "user:" + userId
+                : "ip:" + com.fpt.swp.util.RequestUtils.clientIp(httpRequest);
+        if (!aiRateLimiter.tryAcquire(key)) {
+            throw new RateLimitExceededException(
+                    "Too many AI requests. Please wait a moment before trying again.");
+        }
+    }
 
     // -------------------------------------------------------------------------
     // FR-10.6: Abstract Assistant
@@ -44,8 +62,10 @@ public class AiController {
     @PostMapping("/abstract")
     public ResponseEntity<AbstractAssistResponse> processAbstract(
             @Valid @RequestBody AbstractAssistRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest httpRequest) {
         // Endpoint yêu cầu đăng nhập — security filter sẽ chặn nếu chưa auth
+        enforceRateLimit(userDetails, httpRequest);
         AbstractAssistResponse response = aiService.processAbstract(request);
         return ResponseEntity.ok(response);
     }
@@ -62,7 +82,9 @@ public class AiController {
      */
     @GetMapping("/recommendations")
     public ResponseEntity<ResearchRecommendationResponse> getRecommendations(
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest httpRequest) {
+        enforceRateLimit(userDetails, httpRequest);
         Long userId = authUtils.extractUserId(userDetails);
         ResearchRecommendationResponse response = aiService.getRecommendations(userId);
         return ResponseEntity.ok(response);
@@ -82,7 +104,9 @@ public class AiController {
     @PostMapping("/search")
     public ResponseEntity<PaperSearchResponse> naturalLanguageSearch(
             @Valid @RequestBody NlSearchRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest httpRequest) {
+        enforceRateLimit(userDetails, httpRequest);
         Long userId = authUtils.extractUserId(userDetails);
         PaperSearchResponse response = aiService.naturalLanguageSearch(request, userId);
         return ResponseEntity.ok(response);
@@ -102,21 +126,29 @@ public class AiController {
     @PostMapping("/trend-qa")
     public ResponseEntity<TrendQaResponse> answerTrendQuestion(
             @Valid @RequestBody TrendQaRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest httpRequest) {
+        enforceRateLimit(userDetails, httpRequest);
         TrendQaResponse response = aiService.answerTrendQuestion(request);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/summarize")
     public ResponseEntity<PaperSummaryResponse> summarizePaper(
-            @RequestBody PaperSummaryRequest request) {
+            @Valid @RequestBody PaperSummaryRequest request,
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest httpRequest) {
+        enforceRateLimit(userDetails, httpRequest);
         PaperSummaryResponse response = aiService.summarizePaper(request);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/rerank")
     public ResponseEntity<List<PaperDto>> rerankPapers(
-            @RequestBody PaperRerankRequest request) {
+            @Valid @RequestBody PaperRerankRequest request,
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest httpRequest) {
+        enforceRateLimit(userDetails, httpRequest);
         List<PaperDto> response = aiService.rerankPapers(request);
         return ResponseEntity.ok(response);
     }

@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 /**
  * Request cho FR-10.6: AI hỗ trợ viết/review abstract.
@@ -29,5 +30,6 @@ public class AbstractAssistRequest {
     private Action action;
 
     @NotBlank(message = "Abstract text must not be blank")
+    @Size(max = 6000, message = "Abstract text must not exceed 6000 characters")
     private String text;
 }

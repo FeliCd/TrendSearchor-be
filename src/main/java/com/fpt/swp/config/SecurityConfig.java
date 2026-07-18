@@ -80,8 +80,9 @@ public class SecurityConfig {
                     auth.requestMatchers(HttpMethod.POST, "/api/papers/upload").authenticated();
                     // Moderation requires authentication (role checked via @PreAuthorize)
                     auth.requestMatchers("/api/moderation/**").authenticated();
-                    // AI endpoints: search, trend-qa, summarize, and rerank are public; abstract and recommendations require login
-                    auth.requestMatchers(HttpMethod.POST, "/api/ai/search", "/api/ai/trend-qa", "/api/ai/summarize", "/api/ai/rerank").permitAll();
+                    // AI endpoints: only search & trend-qa are public. summarize/rerank/abstract/recommendations
+                    // require login (they call a paid LLM with client-supplied payloads).
+                    auth.requestMatchers(HttpMethod.POST, "/api/ai/search", "/api/ai/trend-qa").permitAll();
                     auth.requestMatchers("/api/ai/**").authenticated();
                     auth.anyRequest().authenticated();
                 });

@@ -48,7 +48,7 @@ public class UserResponse {
                 .createdAt(user.getCreatedAt())
                 .lastLogin(user.getLastLogin())
                 .receiveNotifications(user.getReceiveNotifications())
-                .isModerator(user.getIsModerator())
+                .isModerator(user.getRole() == Role.MODERATOR)
                 .avatarUrl(user.getAvatarUrl())
                 .mustChangePassword(user.getMustChangePassword())
                 .build();

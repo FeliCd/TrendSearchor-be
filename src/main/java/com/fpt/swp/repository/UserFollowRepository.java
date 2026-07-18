@@ -17,6 +17,9 @@ public interface UserFollowRepository extends JpaRepository<UserFollow, Long> {
     @Query("SELECT f FROM UserFollow f WHERE f.user.id = :userId ORDER BY f.createdAt DESC")
     Page<UserFollow> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId, Pageable pageable);
 
+    @Query("SELECT f FROM UserFollow f WHERE f.user.id = :userId AND f.topic IS NOT NULL")
+    java.util.List<UserFollow> findTopicFollowsByUserId(@Param("userId") Long userId);
+
     @Query("SELECT f FROM UserFollow f WHERE f.user.id = :userId AND f.followType = :type ORDER BY f.createdAt DESC")
     Page<UserFollow> findByUserIdAndType(
             @Param("userId") Long userId,

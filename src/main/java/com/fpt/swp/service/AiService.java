@@ -138,11 +138,9 @@ public class AiService {
                 .distinct()
                 .collect(Collectors.toList());
 
-        // --- 2. Lấy topics user đang follow ---
-        List<UserFollow> topicFollows = userFollowRepository.findAll().stream()
-                .filter(f -> f.getUser().getId().equals(userId) && f.getTopic() != null)
-                .collect(Collectors.toList());
-        List<String> followedTopics = topicFollows.stream()
+        // --- 2. Lấy topics user đang follow (query scoped theo userId, không quét toàn bảng) ---
+        List<String> followedTopics = userFollowRepository.findTopicFollowsByUserId(userId).stream()
+                .filter(f -> f.getTopic() != null)
                 .map(f -> f.getTopic().getName())
                 .distinct()
                 .collect(Collectors.toList());
@@ -357,10 +355,18 @@ public class AiService {
                 .build();
     }
 
+    /**
+     * Stopwords bị loại chỉ khi đứng thành TỪ RIÊNG (word boundary), tránh việc
+     * xoá nhầm chuỗi con bên trong từ hợp lệ — ví dụ "for" trong "Transformer".
+     * Cờ (?iU): không phân biệt hoa/thường + coi ký tự Unicode (tiếng Việt) là ký tự từ.
+     */
+    private static final java.util.regex.Pattern QUESTION_STOPWORDS = java.util.regex.Pattern.compile(
+            "(?iU)\\b(tại sao|nguyên nhân|do đâu|xu hướng|lại|trending|trend|why|is|what|how|about|research|in|on|for|the|of)\\b");
+
     private String extractTopicFromQuestion(String question) {
         if (question == null || question.isBlank()) return "Computer Science & AI Research";
-        String cleaned = question.replaceAll("(?i)(tại sao|nguyên nhân|do đâu|xu hướng|lại|trending|trend|why|is|what|how|about|research|in|on|for|the|of|\\?)", "").trim();
-        cleaned = cleaned.replaceAll("\\s+", " ");
+        String cleaned = QUESTION_STOPWORDS.matcher(question).replaceAll(" ");
+        cleaned = cleaned.replace("?", " ").replaceAll("\\s+", " ").trim();
         return cleaned.isBlank() ? "Computer Science & AI Research" : cleaned;
     }
 
