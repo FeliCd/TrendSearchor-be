@@ -24,6 +24,16 @@ import java.util.List;
 @Slf4j
 public class OpenRouterClient {
 
+    /**
+     * Đánh dấu (theo từng request/thread) rằng có ít nhất một lần gọi LLM trả về
+     * nội dung hợp lệ. Dùng để chỉ trừ quota khi LLM thực sự chạy, không trừ khi
+     * rơi vào fallback do model lỗi/offline. Reset ở đầu mỗi request AI.
+     */
+    private static final ThreadLocal<Boolean> LLM_SUCCEEDED = ThreadLocal.withInitial(() -> Boolean.FALSE);
+
+    public static void resetCallFlag() { LLM_SUCCEEDED.set(Boolean.FALSE); }
+    public static boolean wasLlmCallSuccessful() { return Boolean.TRUE.equals(LLM_SUCCEEDED.get()); }
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final String baseUrl;
@@ -117,6 +127,9 @@ public class OpenRouterClient {
                 String content = response.getBody().getFirstContent();
                 log.debug("OpenRouter response (model={}): {} chars", model,
                         content != null ? content.length() : 0);
+                if (content != null && !content.isBlank()) {
+                    LLM_SUCCEEDED.set(Boolean.TRUE);
+                }
                 return content;
             }
 

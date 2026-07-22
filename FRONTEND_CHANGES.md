@@ -1,9 +1,10 @@
-# 📋 Thay đổi API cho Frontend — Đợt cập nhật (Moderation · AI · Bản quyền)
+# 📋 Thay đổi API cho Frontend — Đợt cập nhật (Moderation · AI · Bản quyền · Gói dịch vụ)
 
 > Tài liệu này liệt kê **mọi thay đổi backend ảnh hưởng tới FE** trong đợt vừa rồi,
-> kèm việc FE **bắt buộc phải làm** để tránh lỗi 400/401. Đọc mục ⚠️ trước.
+> kèm việc FE **bắt buộc phải làm** để tránh lỗi 400/401/402. Đọc mục ⚠️ trước.
 >
-> Backend đã test runtime end-to-end (9/9 pass). Base URL: giữ nguyên. Auth: vẫn `Authorization: Bearer <token>`.
+> Base URL: giữ nguyên. Auth: vẫn `Authorization: Bearer <token>`.
+> Phần Moderation/Bản quyền đã test runtime 9/9. Phần **Gói dịch vụ/Quota (mục F)** đã code xong, đang chờ smoke-test cuối.
 
 ---
 
@@ -12,10 +13,11 @@
 | # | Việc | Nếu không làm |
 |---|------|---------------|
 | 1 | Form **upload paper** thêm 4 field bắt buộc (`license`, `publicationType`, `ownershipConfirmed`, `termsAccepted`) | Upload trả **400** |
-| 2 | Gọi `POST /api/ai/summarize` và `POST /api/ai/rerank` **kèm token** | Trả **401** |
+| 2 | **Mọi tính năng AI cần đăng nhập** (kể cả search & trend-qa — trước public) | Trả **401** |
 | 3 | Bỏ dùng endpoint `PATCH /api/admin/users/{id}/moderator` (đã xoá) → cấp moderator bằng `/role` | Trả **404/405** |
-| 4 | Xử lý mã **429** cho mọi endpoint `/api/ai/*` (rate limit) | User spam sẽ bị chặn, cần hiển thị thông báo |
+| 4 | Xử lý **429** (spam) và **402** (hết quota AI) cho `/api/ai/*` | Không hiển thị được lý do bị chặn |
 | 5 | Trang chi tiết bài xử lý **404** cho bài bị gỡ / đang embargo | Hiện lỗi không rõ ràng |
+| 6 | Làm trang **Pricing + gói PRO** và hiển thị **quota còn lại** (mục F) | Không bán được gói / user không biết còn bao nhiêu lượt |
 
 ---
 
@@ -104,19 +106,19 @@ Quyền: `MODERATOR` / `ADMIN`.
 
 ## C. Endpoint AI — siết auth + rate limit + giới hạn độ dài
 
-### C.1 `summarize` và `rerank` giờ CẦN đăng nhập (BREAKING)
-| Endpoint | Trước | Giờ |
-|---|---|---|
-| `POST /api/ai/summarize` | public | **cần token** (401 nếu thiếu) |
-| `POST /api/ai/rerank` | public | **cần token** (401 nếu thiếu) |
-| `POST /api/ai/search` | public | public (không đổi) |
-| `POST /api/ai/trend-qa` | public | public (không đổi) |
-| `POST /api/ai/abstract`, `GET /api/ai/recommendations` | cần token | cần token (không đổi) |
+### C.1 TOÀN BỘ `/api/ai/**` giờ CẦN đăng nhập (BREAKING — cập nhật)
+> ⚠️ Cập nhật mới nhất: `search` và `trend-qa` **không còn public** nữa. Mọi endpoint AI đều cần token.
 
-→ Nếu FE gọi summarize/rerank ở trang cho khách chưa login: chỉ gọi khi đã đăng nhập, hoặc gắn token.
+| Endpoint | Giờ |
+|---|---|
+| `POST /api/ai/search`, `/trend-qa`, `/summarize`, `/rerank` | **cần token** (401 nếu thiếu) |
+| `POST /api/ai/abstract`, `GET /api/ai/recommendations` | cần token |
+| `GET /api/ai/quota` | cần token (mới — xem mục F) |
+
+→ FE: guard mọi tính năng AI sau đăng nhập. Khách vãng lai không dùng thử AI được nữa (phải đăng ký tài khoản).
 
 ### C.2 Rate limit — tất cả `/api/ai/*`
-- Giới hạn **20 request/phút** cho mỗi user (hoặc mỗi IP nếu chưa login).
+- Giới hạn **20 request/phút** cho mỗi user (chống spam, tách biệt với quota theo ngày ở mục F).
 - Vượt → **HTTP 429** `{ "message": "Too many AI requests. Please wait a moment before trying again." }`
 - FE nên bắt 429 và hiển thị toast "Bạn thao tác AI quá nhanh, thử lại sau chút nhé".
 
@@ -171,6 +173,32 @@ Thêm 3 field, FE dùng để hiển thị badge & trạng thái:
 - **Badge license** trên trang chi tiết bài (VD: `CC BY`, `All Rights Reserved`).
 - Bài **đang embargo** (`embargoUntil` > hôm nay) hoặc **`TAKEN_DOWN`**: `GET /api/papers/{id}` trả **404** với mọi người — **trừ chính uploader** (vẫn xem được bài của mình trong my-uploads / link trực tiếp). FE nên hiển thị nhãn "Đang embargo đến {ngày}" hoặc "Đã bị gỡ" cho uploader.
 - Các bài này cũng không xuất hiện trong search / danh sách công khai.
+
+---
+
+## F. Gói dịch vụ & Hạn mức AI — Freemium (TÍNH NĂNG MỚI)
+
+Mô hình quota theo tier cho tính năng AI:
+
+| Tier | Hạn mức | Giá |
+|---|---|---|
+| **FREE** | 3 lượt AI / 24h | 0đ (mặc định) |
+| **PRO** | 50 lượt AI / 24h | 199.000đ / 30 ngày |
+| ADMIN | không giới hạn | — |
+
+- **"1 lượt"** = 1 lần gọi bất kỳ endpoint AI. Cửa sổ **trượt 24h**. Chỉ trừ lượt khi AI **thật sự chạy** (fallback do model lỗi không trừ).
+- Khi hết lượt: mọi call `/api/ai/*` trả **HTTP 402** `QUOTA_EXCEEDED` kèm `{ tier, dailyLimit, used, nextAvailableAt }`. FE bắt 402 → hiện popup nâng cấp PRO.
+
+**Endpoint chính (chi tiết + ví dụ request/response ở [FRONTEND_SUBSCRIPTION_QUOTA.md](FRONTEND_SUBSCRIPTION_QUOTA.md)):**
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| GET | `/api/ai/quota` | Quota còn lại — hiện badge "còn X/limit" |
+| GET | `/api/plans` (public) | Danh sách gói cho trang pricing |
+| GET | `/api/subscriptions/me` | Gói + quota hiện tại của user |
+| POST | `/api/subscriptions/subscribe` | Đăng ký PRO → trả `transactionId` (PENDING) |
+| POST | `/api/payments/mock-confirm` | Xác nhận thanh toán (mock) → kích hoạt PRO |
+
+> 📄 **FE đọc chi tiết ở file riêng: [FRONTEND_SUBSCRIPTION_QUOTA.md](FRONTEND_SUBSCRIPTION_QUOTA.md)** — có đầy đủ body/response mẫu và luồng subscribe→confirm.
 
 ---
 
