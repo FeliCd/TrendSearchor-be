@@ -12,7 +12,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Constraint(validatedBy = DobValidator.class)
 public @interface ValidDob {
-    String message() default "Date of birth must be a past date and year must be greater than 1920";
+    String message() default "You must be at least 18 years old to create an account";
 
     Class<?>[] groups() default {};
 

@@ -284,6 +284,25 @@ public class ResearchPaperUploadService {
                 .map(this::mapLocalPaperToDto);
     }
 
+    @Transactional(readOnly = true)
+    public List<java.util.Map<String, Object>> getLeaderboard(int limit) {
+        List<User> users = userRepository.findAll();
+        return users.stream()
+                .map(u -> {
+                    long count = paperRepository.findByUploadedById(u.getId(), org.springframework.data.domain.Pageable.unpaged()).getContent().stream()
+                            .filter(p -> p.getStatus() == PaperStatus.APPROVED)
+                            .count();
+                    java.util.Map<String, Object> map = new java.util.HashMap<>();
+                    map.put("fullName", u.getFullName());
+                    map.put("mail", u.getMail());
+                    map.put("approvedPapersCount", count);
+                    return map;
+                })
+                .sorted((a, b) -> Long.compare((Long) b.get("approvedPapersCount"), (Long) a.get("approvedPapersCount")))
+                .limit(limit)
+                .collect(Collectors.toList());
+    }
+
     private PaperDto mapLocalPaperToDto(ResearchPaper paper) {
         return PaperDto.builder()
                 .id(paper.getId())

@@ -14,7 +14,7 @@ public class DobValidator implements ConstraintValidator<ValidDob, LocalDate> {
         }
         
         LocalDate now = LocalDate.now();
-        // Must be in the past and year > 1920
-        return dob.isBefore(now) && dob.getYear() > 1920;
+        // Must be at least 18 years old and year > 1920
+        return dob.getYear() >= 1920 && !dob.isAfter(now.minusYears(18));
     }
 }

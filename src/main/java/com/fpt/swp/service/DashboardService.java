@@ -50,7 +50,10 @@ public class DashboardService {
         DashboardStatsDto stats = getPublicDashboardStats();
 
         if (userId != null) {
-            stats.setTopJournals(getFollowedJournals(userId, 5));
+            List<JournalStatsDto> followed = getFollowedJournals(userId, 5);
+            if (followed != null && !followed.isEmpty()) {
+                stats.setTopJournals(followed);
+            }
         }
 
         return stats;

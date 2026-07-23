@@ -103,6 +103,13 @@ public class ResearchPaperUploadController {
         return ResponseEntity.ok(revoked);
     }
 
+    @GetMapping("/api/papers/leaderboard")
+    public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getLeaderboard(
+            @RequestParam(defaultValue = "5") int limit) {
+        java.util.List<java.util.Map<String, Object>> leaderboard = uploadService.getLeaderboard(limit);
+        return ResponseEntity.ok(leaderboard);
+    }
+
     @PostMapping("/api/admin/papers/{id}/approve")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PaperDto> approvePaper(
