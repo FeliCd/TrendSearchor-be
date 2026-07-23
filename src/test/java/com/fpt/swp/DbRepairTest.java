@@ -1,5 +1,6 @@
 package com.fpt.swp;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -8,6 +9,7 @@ import java.sql.Statement;
 public class DbRepairTest {
 
     @Test
+    @Disabled("Manual utility test for repairing local MySQL Flyway table")
     public void testRepairFlyway() throws Exception {
         String url = "jdbc:mysql://localhost:3306/trendsearchor";
         String user = "root";

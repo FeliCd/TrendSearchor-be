@@ -51,8 +51,8 @@ class OpenRouterIntegrationTest {
 
     @Test
     void openRouterClient_simplePing_shouldReturnResponse() {
-        if (apiKey == null || apiKey.isBlank()) {
-            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set.");
+        if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("test-")) {
+            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set or using placeholder test key.");
             return;
         }
 
@@ -66,18 +66,18 @@ class OpenRouterIntegrationTest {
     }
 
     // -------------------------------------------------------------------------
-    // Test 2: FR-10.6 Abstract CLEANUP
+    // Test 2: FR-10.6 Abstract SPELLCHECK
     // -------------------------------------------------------------------------
 
     @Test
-    void abstractAssist_cleanup_shouldReturnImprovedText() {
-        if (apiKey == null || apiKey.isBlank()) {
-            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set.");
+    void abstractAssist_spellcheck_shouldReturnCorrectedText() {
+        if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("test-")) {
+            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set or using placeholder test key.");
             return;
         }
 
         AbstractAssistRequest request = new AbstractAssistRequest(
-                AbstractAssistRequest.Action.CLEANUP,
+                AbstractAssistRequest.Action.SPELLCHECK,
                 "This paper present a new method for clasification of image using deep lerning. " +
                 "We use CNN architecture and train on imagenet dataset. The result show that " +
                 "our methode achieve 95% accurcy which is better then previous work."
@@ -85,25 +85,25 @@ class OpenRouterIntegrationTest {
 
         AbstractAssistResponse response = aiService.processAbstract(request);
 
-        System.out.println(">>> CLEANUP result: " + response.getResult());
+        System.out.println(">>> SPELLCHECK result: " + response.getResult());
         assertThat(response).isNotNull();
         assertThat(response.getResult()).isNotBlank();
-        System.out.println("✅ FR-10.6 CLEANUP: PASSED");
+        System.out.println("✅ FR-10.6 SPELLCHECK: PASSED");
     }
 
     // -------------------------------------------------------------------------
-    // Test 3: FR-10.6 Abstract EVALUATE
+    // Test 3: FR-10.6 Abstract SUGGEST_MISSING
     // -------------------------------------------------------------------------
 
     @Test
-    void abstractAssist_evaluate_shouldReturnScoreAndFeedback() {
-        if (apiKey == null || apiKey.isBlank()) {
-            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set.");
+    void abstractAssist_suggestMissing_shouldReturnSuggestionsAndFeedback() {
+        if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("test-")) {
+            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set or using placeholder test key.");
             return;
         }
 
         AbstractAssistRequest request = new AbstractAssistRequest(
-                AbstractAssistRequest.Action.EVALUATE,
+                AbstractAssistRequest.Action.SUGGEST_MISSING,
                 "This paper proposes a novel Transformer-based architecture for natural language understanding. " +
                 "We demonstrate state-of-the-art results on GLUE and SuperGLUE benchmarks, " +
                 "achieving 92.3% on MNLI and 89.1% on QQP. Our model requires 40% fewer parameters " +
@@ -112,11 +112,11 @@ class OpenRouterIntegrationTest {
 
         AbstractAssistResponse response = aiService.processAbstract(request);
 
-        System.out.println(">>> EVALUATE score: " + response.getScore());
-        System.out.println(">>> EVALUATE feedback: " + response.getFeedback());
+        System.out.println(">>> SUGGEST_MISSING suggestions: " + response.getSuggestions());
+        System.out.println(">>> SUGGEST_MISSING feedback: " + response.getFeedback());
         assertThat(response).isNotNull();
-        assertThat(response.getScore()).isNotNull().isBetween(0, 10);
-        System.out.println("✅ FR-10.6 EVALUATE: PASSED (score = " + response.getScore() + "/10)");
+        assertThat(response.getSuggestions()).isNotNull().isNotEmpty();
+        System.out.println("✅ FR-10.6 SUGGEST_MISSING: PASSED (suggestions = " + response.getSuggestions().size() + ")");
     }
 
     // -------------------------------------------------------------------------
@@ -125,8 +125,8 @@ class OpenRouterIntegrationTest {
 
     @Test
     void naturalLanguageSearch_shouldExtractParamsAndReturnResults() {
-        if (apiKey == null || apiKey.isBlank()) {
-            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set.");
+        if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("test-")) {
+            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set or using placeholder test key.");
             return;
         }
 
@@ -147,8 +147,8 @@ class OpenRouterIntegrationTest {
 
     @Test
     void trendQa_withKeyword_shouldReturnAnalysis() {
-        if (apiKey == null || apiKey.isBlank()) {
-            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set.");
+        if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("test-")) {
+            System.out.println("⚠️  SKIPPED: OPENROUTER_API_KEY is not set or using placeholder test key.");
             return;
         }
 

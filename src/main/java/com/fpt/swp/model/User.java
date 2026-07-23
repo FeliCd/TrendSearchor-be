@@ -69,10 +69,6 @@ public class User {
     private Boolean receiveNotifications = true;
 
     @Builder.Default
-    @Column(name = "is_moderator", nullable = false)
-    private Boolean isModerator = false;
-
-    @Builder.Default
     @Column(name = "builtin", nullable = false)
     private Boolean builtin = false;
 

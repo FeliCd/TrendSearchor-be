@@ -1,8 +1,8 @@
 package com.fpt.swp.controller;
 
 import com.fpt.swp.dto.ModerationStatsDto;
+import com.fpt.swp.model.PaperStatus;
 import com.fpt.swp.model.ResearchPaper;
-import com.fpt.swp.model.UploadStatus;
 import com.fpt.swp.service.ModerationService;
 import com.fpt.swp.util.AuthUtils;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +22,7 @@ import java.util.Map;
 public class ModerationController {
 
     private final ModerationService moderationService;
+    private final com.fpt.swp.service.CopyrightReportService copyrightReportService;
     private final AuthUtils authUtils;
 
     /**
@@ -34,8 +35,8 @@ public class ModerationController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        UploadStatus uploadStatus = UploadStatus.valueOf(status.toUpperCase());
-        return ResponseEntity.ok(moderationService.getPapersByStatus(uploadStatus, page, size));
+        PaperStatus paperStatus = PaperStatus.valueOf(status.toUpperCase());
+        return ResponseEntity.ok(moderationService.getPapersByStatus(paperStatus, page, size));
     }
 
     /**
@@ -61,7 +62,7 @@ public class ModerationController {
         return ResponseEntity.ok(Map.of(
                 "message", "Paper approved successfully",
                 "paperId", paper.getId(),
-                "status", paper.getUploadStatus().name()
+                "status", paper.getStatus().name()
         ));
     }
 
@@ -82,7 +83,7 @@ public class ModerationController {
         return ResponseEntity.ok(Map.of(
                 "message", "Paper rejected",
                 "paperId", paper.getId(),
-                "status", paper.getUploadStatus().name(),
+                "status", paper.getStatus().name(),
                 "reason", reason
         ));
     }
@@ -94,5 +95,37 @@ public class ModerationController {
     @GetMapping("/stats")
     public ResponseEntity<ModerationStatsDto> getStats() {
         return ResponseEntity.ok(moderationService.getStats());
+    }
+
+    // ─── Copyright reports (notice-and-takedown) ──────────────────────────────
+
+    /**
+     * List copyright reports by status for review.
+     * GET /api/moderation/copyright-reports?status=PENDING&page=0&size=10
+     */
+    @GetMapping("/copyright-reports")
+    public ResponseEntity<org.springframework.data.domain.Page<com.fpt.swp.dto.CopyrightReportDto>> getCopyrightReports(
+            @RequestParam(defaultValue = "PENDING") String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        com.fpt.swp.model.CopyrightReportStatus reportStatus =
+                com.fpt.swp.model.CopyrightReportStatus.valueOf(status.toUpperCase());
+        return ResponseEntity.ok(copyrightReportService.getReportsByStatus(reportStatus, page, size));
+    }
+
+    /**
+     * Resolve a copyright report: DISMISS keeps the paper, TAKE_DOWN removes it
+     * from public view and closes every pending report on the same paper.
+     * PATCH /api/moderation/copyright-reports/{id}/resolve
+     */
+    @PatchMapping("/copyright-reports/{id}/resolve")
+    public ResponseEntity<com.fpt.swp.dto.CopyrightReportDto> resolveCopyrightReport(
+            @PathVariable Long id,
+            @jakarta.validation.Valid @RequestBody com.fpt.swp.dto.ResolveCopyrightReportRequest request,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        Long reviewerId = authUtils.extractUserId(userDetails);
+        return ResponseEntity.ok(copyrightReportService.resolveReport(id, reviewerId, request));
     }
 }

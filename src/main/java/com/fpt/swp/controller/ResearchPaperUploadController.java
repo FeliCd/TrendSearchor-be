@@ -38,12 +38,14 @@ public class ResearchPaperUploadController {
 
     @PostMapping("/api/papers/upload")
     @PreAuthorize("hasAnyRole('RESEARCHER', 'ADMIN')")
-    public ResponseEntity<PaperDto> uploadPaper(@Valid @RequestBody UploadPaperRequest request) {
+    public ResponseEntity<PaperDto> uploadPaper(@Valid @RequestBody UploadPaperRequest request,
+                                                jakarta.servlet.http.HttpServletRequest httpRequest) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByMail(email)
                 .orElseThrow(() -> new EntityNotFoundException("User not found"));
 
-        PaperDto paperDto = uploadService.uploadPaper(request, user);
+        String clientIp = com.fpt.swp.util.RequestUtils.clientIp(httpRequest);
+        PaperDto paperDto = uploadService.uploadPaper(request, user, clientIp);
         return ResponseEntity.status(HttpStatus.CREATED).body(paperDto);
     }
 

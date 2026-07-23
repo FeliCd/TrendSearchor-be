@@ -34,8 +34,15 @@ public class ResearchPaperUploadService {
     private final UserFollowRepository userFollowRepository;
     private final NotificationService notificationService;
 
+    /**
+     * Phiên bản Terms of Service hiện hành — được đóng dấu vào từng bản ghi upload
+     * làm bằng chứng uploader đã đồng ý điều khoản nào. Không tin giá trị từ client.
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.legal.terms-version:1.0}")
+    private String currentTermsVersion;
+
     @Transactional
-    public PaperDto uploadPaper(UploadPaperRequest request, User user) {
+    public PaperDto uploadPaper(UploadPaperRequest request, User user, String clientIp) {
         log.info("User {} uploading research paper: {}", user.getMail(), request.getTitle());
 
         ResearchPaper paper = new ResearchPaper();
@@ -44,11 +51,24 @@ public class ResearchPaperUploadService {
         paper.setYear(request.getYear());
         paper.setPaperUri(request.getPaperUri());
         paper.setStatus(PaperStatus.PENDING);
+        paper.setSource(PaperSource.USER_UPLOAD);
         paper.setUploadedBy(user);
-        paper.setIsSelfPublished(true);
         paper.setExternalId("uploaded_" + UUID.randomUUID());
         paper.setCitationCount(0);
         paper.setOpenAccess(true);
+
+        // ─── Legal / Copyright: lưu khai báo của uploader + audit trail ─────────
+        paper.setLicense(request.getLicense());
+        paper.setPublicationType(request.getPublicationType());
+        // isSelfPublished suy ra từ khai báo, không hardcode: chỉ luận văn/nghiên cứu
+        // gốc mới là self-published; bài đăng lại thì publisher có thể giữ bản quyền.
+        paper.setIsSelfPublished(request.getPublicationType() == PublicationType.ORIGINAL_THESIS);
+        paper.setOwnershipConfirmed(Boolean.TRUE.equals(request.getOwnershipConfirmed()));
+        paper.setTermsAccepted(Boolean.TRUE.equals(request.getTermsAccepted()));
+        paper.setTermsVersion(currentTermsVersion);
+        paper.setTermsAcceptedAt(java.time.LocalDateTime.now());
+        paper.setUploadedByIp(clientIp);
+        paper.setEmbargoUntil(request.getEmbargoUntil());
 
         if (request.getAuthors() != null) {
             for (String authorName : request.getAuthors()) {
@@ -280,9 +300,14 @@ public class ResearchPaperUploadService {
                 .openAccess(paper.getOpenAccess())
                 .paperUri(paper.getPaperUri())
                 .status(paper.getStatus() != null ? paper.getStatus().name() : null)
+                .uploadStatus(paper.getUploadStatus() != null ? paper.getUploadStatus().name() : null)
+                .rejectionReason(paper.getRejectionReason())
                 .uploadedBy(paper.getUploadedBy() != null ? paper.getUploadedBy().getMail() : null)
                 .isSelfPublished(paper.getIsSelfPublished())
                 .statusComments(paper.getStatusComments())
+                .license(paper.getLicense() != null ? paper.getLicense().name() : null)
+                .publicationType(paper.getPublicationType() != null ? paper.getPublicationType().name() : null)
+                .embargoUntil(paper.getEmbargoUntil())
                 .authors(paper.getAuthors().stream()
                         .map(a -> AuthorDto.builder()
                                 .id(a.getId())

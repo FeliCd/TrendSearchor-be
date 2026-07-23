@@ -31,4 +31,9 @@ public class PaperDto {
     private String uploadedBy;
     private Boolean isSelfPublished;
     private String statusComments;
+    private Integer aiRelevanceScore;
+    private String aiRelevanceReason;
+    private String license;
+    private String publicationType;
+    private java.time.LocalDate embargoUntil;
 }

@@ -4,5 +4,7 @@ public enum PaperStatus {
     PENDING,
     APPROVED,
     REJECTED,
-    REVOKED
+    REVOKED,
+    /** Đã từng APPROVED nhưng bị gỡ sau khi có báo cáo vi phạm bản quyền được xử lý. */
+    TAKEN_DOWN
 }

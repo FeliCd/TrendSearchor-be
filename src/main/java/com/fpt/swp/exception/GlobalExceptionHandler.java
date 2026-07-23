@@ -65,6 +65,18 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage());
     }
 
+    @ExceptionHandler(QuotaExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleQuotaExceeded(QuotaExceededException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("message", ex.getMessage());
+        body.put("code", "QUOTA_EXCEEDED");
+        body.put("tier", ex.getTier());
+        body.put("dailyLimit", ex.getDailyLimit());
+        body.put("used", ex.getUsed());
+        body.put("nextAvailableAt", ex.getNextAvailableAt());
+        return new ResponseEntity<>(body, HttpStatus.PAYMENT_REQUIRED);
+    }
+
     // ─── Access Control ─────────────────────────────────────────────────────────
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
     public ResponseEntity<Map<String, String>> handleAccessDenied(
