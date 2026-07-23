@@ -184,11 +184,21 @@ public class ResearchPaper {
     /**
      * Backwards-compatible view of the moderation status for API consumers that
      * still read {@code uploadStatus}. Derived from the single source of truth,
-     * {@link #status}, so the two can never drift apart.
+     * {@link #status}.
+     *
+     * <p>If a {@link PaperStatus} value has no matching {@link UploadStatus}
+     * constant (e.g. a newly added status not mirrored here), this returns
+     * {@code null} instead of throwing — so serialization never breaks with a
+     * 500. API consumers should read {@code status} for the authoritative value.
      */
     @Transient
     public UploadStatus getUploadStatus() {
-        return status == null ? null : UploadStatus.valueOf(status.name());
+        if (status == null) return null;
+        try {
+            return UploadStatus.valueOf(status.name());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     /** Bài đang trong thời gian embargo — không được hiển thị công khai dù đã duyệt. */
