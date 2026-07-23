@@ -289,11 +289,11 @@ public class ResearchPaperUploadService {
         List<User> users = userRepository.findAll();
         return users.stream()
                 .map(u -> {
-                    long count = paperRepository.findByUploadedById(u.getId(), org.springframework.data.domain.Pageable.unpaged()).getContent().stream()
+                    long count = paperRepository.findByUploadedById(u.getId(), org.springframework.data.domain.PageRequest.of(0, 100)).getContent().stream()
                             .filter(p -> p.getStatus() == PaperStatus.APPROVED)
                             .count();
                     java.util.Map<String, Object> map = new java.util.HashMap<>();
-                    map.put("fullName", u.getFullName());
+                    map.put("fullName", u.getFullName() != null ? u.getFullName() : "Anonymous Researcher");
                     map.put("mail", u.getMail());
                     map.put("approvedPapersCount", count);
                     return map;
