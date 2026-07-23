@@ -149,6 +149,7 @@ public class ModerationService {
                 .rejectedCount(paperRepository.countByStatus(PaperStatus.REJECTED))
                 .totalUploads(paperRepository.countUserUploads())
                 .takenDownCount(paperRepository.countByStatus(PaperStatus.TAKEN_DOWN))
+                .revokedCount(paperRepository.countByStatus(PaperStatus.REVOKED))
                 .pendingCopyrightReports(copyrightReportRepository.countByStatus(
                         com.fpt.swp.model.CopyrightReportStatus.PENDING))
                 .build();

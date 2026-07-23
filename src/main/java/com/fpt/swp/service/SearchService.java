@@ -397,7 +397,9 @@ public class SearchService {
      * (moderator/admin xem qua API moderation riêng).
      */
     private boolean isViewableBy(ResearchPaper paper, Long userId) {
-        boolean hidden = paper.getStatus() == PaperStatus.TAKEN_DOWN || paper.isUnderEmbargo();
+        boolean hidden = paper.getStatus() == PaperStatus.TAKEN_DOWN
+                || paper.getStatus() == PaperStatus.REVOKED
+                || paper.isUnderEmbargo();
         if (!hidden) return true;
         return userId != null
                 && paper.getUploadedBy() != null

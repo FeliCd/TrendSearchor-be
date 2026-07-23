@@ -245,29 +245,30 @@ public class ResearchPaperUploadService {
 
     @Transactional
     public PaperDto revokePaper(Long paperId, User admin) {
-        log.info("Admin {} revoking decision on paper {}", admin.getMail(), paperId);
+        log.info("Admin {} revoking paper {}", admin.getMail(), paperId);
 
         ResearchPaper paper = paperRepository.findById(paperId)
                 .orElseThrow(() -> new EntityNotFoundException("Research paper not found"));
 
-        if (paper.getStatus() == PaperStatus.PENDING) {
-            throw new IllegalStateException("Paper is already pending moderation.");
+        if (paper.getStatus() != PaperStatus.APPROVED) {
+            throw new IllegalStateException(
+                    "Only an approved paper can be revoked. Current status: " + paper.getStatus());
         }
 
-        paper.setStatus(PaperStatus.PENDING);
-        paper.setApprovedBy(null);
-        paper.setStatusComments(null);
+        // Thu hồi: gỡ khỏi công khai. Giữ approvedBy làm lịch sử. Muốn đăng lại thì
+        // admin gọi /api/admin/papers/{id}/approve với status=APPROVED.
+        paper.setStatus(PaperStatus.REVOKED);
 
         ResearchPaper savedPaper = paperRepository.save(paper);
 
-        // Notify researcher that decision has been revoked
+        // Notify researcher that the paper has been revoked
         if (paper.getUploadedBy() != null) {
             try {
                 notificationService.createNotification(
                         paper.getUploadedBy().getId(),
                         NotificationType.APPROVAL,
-                        "Paper Moderation Revoked",
-                        "The decision on your paper \"" + paper.getTitle() + "\" has been revoked by the admin. It is now pending review again."
+                        "Your paper has been revoked",
+                        "Your paper \"" + paper.getTitle() + "\" has been revoked by the admin and is no longer publicly visible."
                 );
             } catch (Exception e) {
                 log.error("Failed to send revocation notification to researcher: {}", e.getMessage());

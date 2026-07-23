@@ -101,8 +101,9 @@
 | `APPROVED` | 🟢 Đã duyệt |
 | `REJECTED` | 🔴 Bị từ chối (xem `rejectionReason`) |
 | `TAKEN_DOWN` | ⚫ Đã bị gỡ (vi phạm bản quyền) |
+| `REVOKED` | ⚫ Đã bị thu hồi (admin gỡ bài đã duyệt) |
 
-> Uploader **vẫn xem được** bài của mình kể cả khi `TAKEN_DOWN` hoặc đang embargo (khác với người ngoài — họ nhận 404). Nên hiển thị nhãn "Đang embargo đến {ngày}" nếu `embargoUntil` còn hiệu lực.
+> Uploader **vẫn xem được** bài của mình kể cả khi `TAKEN_DOWN` / `REVOKED` / đang embargo (khác với người ngoài — họ nhận 404). Nên hiển thị nhãn "Đang embargo đến {ngày}" nếu `embargoUntil` còn hiệu lực.
 
 ---
 
@@ -132,7 +133,7 @@
 | `null` | (bài nguồn ngoài — không hiện badge) |
 
 ### 5.2 Bài bị ẩn (embargo / gỡ)
-`GET /api/papers/{id}` trả **404** khi bài đang `embargoUntil` (> hôm nay) hoặc `TAKEN_DOWN` — **với mọi người trừ chính uploader**.
+`GET /api/papers/{id}` trả **404** khi bài đang `embargoUntil` (> hôm nay), `TAKEN_DOWN`, hoặc `REVOKED` — **với mọi người trừ chính uploader**.
 - Người ngoài: FE hiển thị trang "Bài viết không tồn tại hoặc không khả dụng".
 - Uploader (trong my-uploads): vẫn 200, hiển thị nhãn trạng thái tương ứng.
 - Các bài này **không** xuất hiện trong search / danh sách công khai.
@@ -155,7 +156,7 @@
 | `ORIGINAL_THESIS` | Nghiên cứu/luận văn gốc | Chưa công bố nơi khác |
 | `PREVIOUSLY_PUBLISHED` | Đã xuất bản trước đó | Cần đảm bảo NXB cho phép đăng lại |
 
-**`status` (PaperStatus):** `PENDING` · `APPROVED` · `REJECTED` · `TAKEN_DOWN`
+**`status` (PaperStatus):** `PENDING` · `APPROVED` · `REJECTED` · `TAKEN_DOWN` · `REVOKED`
 
 ---
 

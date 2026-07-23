@@ -144,13 +144,15 @@ Quyền: `MODERATOR` / `ADMIN`.
 
 ### D.2 Moderation giờ chạy đúng
 Trước đây hàng đợi kiểm duyệt đọc nhầm field nên **luôn rỗng** — giờ đã sửa. Không đổi cách gọi API, chỉ là dữ liệu hiển thị đúng.
-- `GET /api/moderation/papers?status=` — `status` giờ nhận thêm **`TAKEN_DOWN`** (ngoài PENDING/APPROVED/REJECTED).
+- `GET /api/moderation/papers?status=` — `status` giờ nhận thêm **`TAKEN_DOWN`** và **`REVOKED`** (ngoài PENDING/APPROVED/REJECTED).
+- `POST /api/admin/papers/{id}/revoke` — thu hồi bài **đã APPROVED** → `REVOKED` (ẩn khỏi công khai). Đăng lại bằng `POST /api/admin/papers/{id}/approve` với `status:"APPROVED"`.
 
 ### D.3 `GET /api/moderation/stats` — thêm field
 ```json
 {
   "pendingCount": 5, "approvedCount": 10, "rejectedCount": 2, "totalUploads": 17,
   "takenDownCount": 1,            // MỚI
+  "revokedCount": 0,              // MỚI — số bài bị admin thu hồi
   "pendingCopyrightReports": 3    // MỚI — badge cho tab report bản quyền
 }
 ```
@@ -214,6 +216,6 @@ Mô hình quota theo tier cho tính năng AI:
 
 **`publicationType`**: `ORIGINAL_THESIS` (nghiên cứu gốc) · `PREVIOUSLY_PUBLISHED` (đã xuất bản nơi khác)
 
-**`status` của bài (PaperStatus)**: `PENDING` · `APPROVED` · `REJECTED` · `TAKEN_DOWN`
+**`status` của bài (PaperStatus)**: `PENDING` · `APPROVED` · `REJECTED` · `TAKEN_DOWN` · `REVOKED` (admin thu hồi bài đã duyệt — ẩn khỏi công khai như TAKEN_DOWN)
 
 **`CopyrightReportStatus`**: `PENDING` · `DISMISSED` · `ACTION_TAKEN`
