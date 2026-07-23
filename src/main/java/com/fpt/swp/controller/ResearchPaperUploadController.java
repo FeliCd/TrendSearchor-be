@@ -100,14 +100,12 @@ public class ResearchPaperUploadController {
     @PostMapping("/api/admin/papers/{id}/revoke")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PaperDto> revokePaper(
-            @PathVariable Long id,
-            @RequestBody(required = false) com.fpt.swp.dto.PaperRevokeRequest request) {
+            @PathVariable Long id) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User admin = userRepository.findByMail(email)
                 .orElseThrow(() -> new EntityNotFoundException("User not found"));
 
-        String comments = request != null ? request.getComments() : null;
-        PaperDto revoked = uploadService.revokePaper(id, admin, comments);
+        PaperDto revoked = uploadService.revokePaper(id, admin);
         return ResponseEntity.ok(revoked);
     }
 

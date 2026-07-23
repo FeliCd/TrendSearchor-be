@@ -4,5 +4,6 @@ public enum UploadStatus {
     PENDING,
     APPROVED,
     REJECTED,
-    TAKEN_DOWN
+    TAKEN_DOWN,
+    REVOKED
 }

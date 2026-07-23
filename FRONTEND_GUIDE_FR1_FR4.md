@@ -59,6 +59,7 @@ Dành cho giao diện **Moderation Dashboard**.
   "rejectedCount": 2,
   "totalUploads": 17,
   "takenDownCount": 1,
+  "revokedCount": 0,
   "pendingCopyrightReports": 3
 }
 ```
@@ -66,7 +67,7 @@ Dành cho giao diện **Moderation Dashboard**.
 ### 2.2. Xem danh sách bài theo trạng thái
 - **Endpoint:** `GET /api/moderation/papers`
 - **Query Params:**
-  - `status`: `PENDING` | `APPROVED` | `REJECTED` | `TAKEN_DOWN` (Mặc định là `PENDING`)
+  - `status`: `PENDING` | `APPROVED` | `REJECTED` | `TAKEN_DOWN` | `REVOKED` (Mặc định là `PENDING`)
   - `page`, `size`
 - **Response (200 OK):** `Page<ResearchPaper>`
 

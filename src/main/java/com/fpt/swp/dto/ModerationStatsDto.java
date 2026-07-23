@@ -11,5 +11,6 @@ public class ModerationStatsDto {
     private long rejectedCount;
     private long totalUploads;
     private long takenDownCount;
+    private long revokedCount;
     private long pendingCopyrightReports;
 }
