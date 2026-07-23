@@ -38,7 +38,7 @@ public class DashboardService {
                 .totalAuthors(authorRepository.count())
                 .totalKeywords(keywordRepository.count())
                 .topKeywords(trendService.getTrendingKeywords(10))
-                .topJournals(getTopJournals(5))
+                .topJournals(getTopJournals(3))
                 .yearlyStats(trendService.getYearlyStats())
                 .newPapersThisWeek(0L)
                 .newPapersThisMonth(0L)
@@ -50,7 +50,7 @@ public class DashboardService {
         DashboardStatsDto stats = getPublicDashboardStats();
 
         if (userId != null) {
-            List<JournalStatsDto> followed = getFollowedJournals(userId, 5);
+            List<JournalStatsDto> followed = getFollowedJournals(userId, 3);
             if (followed != null && !followed.isEmpty()) {
                 stats.setTopJournals(followed);
             }
