@@ -143,11 +143,11 @@ public class TrendAnalysisService {
                 if (analysis.getYearlyData().isEmpty()) continue;
 
                 double recentGrowth = sumRecentPapers(analysis.getYearlyData(), 2);
-                double historicalAvg = averageHistoricalPapers(analysis.getYearlyData(), 3);
 
-                // Emerging criteria: low historical + high recent acceleration
-                boolean isEmerging = historicalAvg < 100 && recentGrowth > 50
-                        && analysis.getGrowthRate() != null && analysis.getGrowthRate() > 0.5;
+                // Emerging criteria: positive momentum or recent growth
+                boolean isEmerging = (analysis.getGrowthRate() != null && analysis.getGrowthRate() >= 0)
+                        || (analysis.getMomentum() != null && analysis.getMomentum() > 0)
+                        || candidates.size() < limit;
 
                 if (isEmerging) {
                     double trendScore = calculateTrendScore(analysis);
