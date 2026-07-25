@@ -243,10 +243,16 @@ public class AiService {
      */
     public PaperSearchResponse naturalLanguageSearch(NlSearchRequest nlRequest, Long userId) {
         String systemPrompt =
-            "You are a search parameter extractor for an academic paper search engine. "
-            + "Extract search parameters from the user's natural language query. "
+            "You are a search parameter extractor for an academic paper search engine whose index "
+            + "(OpenAlex) is English-language. Extract search parameters from the user's natural language query. "
+            + "CRITICAL: the `query` field must be CONCISE ENGLISH ACADEMIC KEYWORDS describing the topic — "
+            + "translate any non-English input to English, keep only the core topic terms, and drop filler words "
+            + "(e.g. 'tìm', 'các nghiên cứu về', 'của', 'the', 'papers about'). "
+            + "Examples: 'đạo đức của AI' -> 'AI ethics'; "
+            + "'các nghiên cứu liên quan đến học sâu cho ảnh y tế' -> 'deep learning medical imaging'; "
+            + "'bài báo của Vaswani về attention 2017' -> query 'attention transformer', author 'Vaswani', year 2017. "
             + "Respond in JSON format: "
-            + "{\"query\": \"<main search keywords>\", \"author\": \"<author name or null>\", "
+            + "{\"query\": \"<concise English keywords>\", \"author\": \"<author name or null>\", "
             + "\"journal\": \"<journal name or null>\", \"year\": <year integer or null>}. "
             + "If a parameter is not mentioned, use null. The query field must not be null.";
 
