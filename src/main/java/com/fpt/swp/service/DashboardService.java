@@ -29,6 +29,7 @@ public class DashboardService {
     private final TrendService trendService;
     private final UserRepository userRepository;
     private final ApiDataSourceRepository apiDataSourceRepository;
+    private final RevenueService revenueService;
 
     @Transactional(readOnly = true)
     public DashboardStatsDto getPublicDashboardStats() {
@@ -161,7 +162,10 @@ public class DashboardService {
                 return apiStat;
             }).collect(Collectors.toList());
         stats.put("apiSyncStatuses", apiSyncStats);
-        
+
+        // ─── Doanh thu (gộp vào admin stats) ───────────────────────────────────
+        stats.put("revenue", revenueService.getRevenueStats());
+
         return stats;
     }
 }

@@ -26,4 +26,16 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
     @Query("SELECT s FROM UserSubscription s WHERE s.status = :status AND s.endDate IS NOT NULL AND s.endDate <= :now")
     List<UserSubscription> findByStatusAndExpired(@Param("status") SubscriptionStatus status,
                                                   @Param("now") LocalDateTime now);
+
+    // ─── Revenue dashboard ─────────────────────────────────────────────────────
+
+    /** Số gói đang hiệu lực (ACTIVE, chưa hết hạn) — tương đương số subscriber PRO active. */
+    @Query("SELECT COUNT(s) FROM UserSubscription s " +
+           "WHERE s.status = com.fpt.swp.model.SubscriptionStatus.ACTIVE AND (s.endDate IS NULL OR s.endDate > :now)")
+    long countActive(@Param("now") LocalDateTime now);
+
+    /** MRR ≈ tổng giá gói của các subscription đang active (giá gói tính theo kỳ 30 ngày). */
+    @Query("SELECT COALESCE(SUM(s.plan.price), 0) FROM UserSubscription s " +
+           "WHERE s.status = com.fpt.swp.model.SubscriptionStatus.ACTIVE AND (s.endDate IS NULL OR s.endDate > :now)")
+    java.math.BigDecimal activeMrr(@Param("now") LocalDateTime now);
 }
