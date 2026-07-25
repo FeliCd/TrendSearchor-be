@@ -164,6 +164,8 @@ public class SearchService {
 
         List<PaperDto> openAlexPapers = rawPapers.stream()
                 .map(p -> mapToPaperDto(p, userId))
+                // Bỏ record rác: title null/rỗng/quá ngắn/còn URL-encode (thường cũng là bài link hỏng)
+                .filter(p -> !com.fpt.swp.util.TextUtils.isUnusableTitle(p.getTitle()))
                 .collect(Collectors.toList());
 
         List<PaperDto> mergedPapers = new ArrayList<>(localApprovedPapers);
@@ -243,7 +245,7 @@ public class SearchService {
                             p.put("paperId", doi != null ? "https://doi.org/" + doi : null);
                             String title = "Untitled";
                             if (item.has("title") && item.get("title").isArray() && item.get("title").size() > 0) {
-                                title = item.get("title").get(0).asText();
+                                title = com.fpt.swp.util.TextUtils.decodeIfPercentEncoded(item.get("title").get(0).asText());
                             }
                             p.put("title", title);
                             String abs = null;
