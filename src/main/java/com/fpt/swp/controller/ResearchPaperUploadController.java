@@ -109,6 +109,8 @@ public class ResearchPaperUploadController {
         return ResponseEntity.ok(revoked);
     }
 
+
+
     @PostMapping("/api/admin/papers/{id}/approve")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PaperDto> approvePaper(

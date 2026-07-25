@@ -29,6 +29,7 @@ public class DashboardService {
     private final TrendService trendService;
     private final UserRepository userRepository;
     private final ApiDataSourceRepository apiDataSourceRepository;
+    private final RevenueService revenueService;
 
     @Transactional(readOnly = true)
     public DashboardStatsDto getPublicDashboardStats() {
@@ -38,7 +39,7 @@ public class DashboardService {
                 .totalAuthors(authorRepository.count())
                 .totalKeywords(keywordRepository.count())
                 .topKeywords(trendService.getTrendingKeywords(10))
-                .topJournals(getTopJournals(5))
+                .topJournals(getTopJournals(3))
                 .yearlyStats(trendService.getYearlyStats())
                 .newPapersThisWeek(0L)
                 .newPapersThisMonth(0L)
@@ -50,7 +51,10 @@ public class DashboardService {
         DashboardStatsDto stats = getPublicDashboardStats();
 
         if (userId != null) {
-            stats.setTopJournals(getFollowedJournals(userId, 5));
+            List<JournalStatsDto> followed = getFollowedJournals(userId, 3);
+            if (followed != null && !followed.isEmpty()) {
+                stats.setTopJournals(followed);
+            }
         }
 
         return stats;
@@ -59,15 +63,21 @@ public class DashboardService {
     @Transactional(readOnly = true)
     public List<JournalStatsDto> getTopJournals(int limit) {
         List<Journal> journals = journalRepository.findTop10ByOrderByNameAsc();
+        if (journals == null || journals.isEmpty()) {
+            return List.of();
+        }
         return journals.stream()
                 .limit(limit)
-                .map(j -> JournalStatsDto.builder()
-                        .id(j.getId())
-                        .name(j.getName())
-                        .publisher(j.getPublisher())
-                        .paperCount((long) j.getPapers().size())
-                        .citationCount(0L)
-                        .build())
+                .map(j -> {
+                    long count = paperRepository.findByJournalId(j.getId(), PageRequest.of(0, 1)).getTotalElements();
+                    return JournalStatsDto.builder()
+                            .id(j.getId())
+                            .name(j.getName())
+                            .publisher(j.getPublisher())
+                            .paperCount(count)
+                            .citationCount(0L)
+                            .build();
+                })
                 .collect(Collectors.toList());
     }
 
@@ -152,7 +162,10 @@ public class DashboardService {
                 return apiStat;
             }).collect(Collectors.toList());
         stats.put("apiSyncStatuses", apiSyncStats);
-        
+
+        // ─── Doanh thu (gộp vào admin stats) ───────────────────────────────────
+        stats.put("revenue", revenueService.getRevenueStats());
+
         return stats;
     }
 }

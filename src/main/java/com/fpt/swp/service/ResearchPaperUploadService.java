@@ -289,6 +289,11 @@ public class ResearchPaperUploadService {
         return paperRepository.findTopResearchersByApprovedPapersCount(org.springframework.data.domain.PageRequest.of(0, limit));
     }
 
+    @Transactional(readOnly = true)
+    public List<com.fpt.swp.dto.ResearcherLeaderboardDto> getLeaderboard(int limit) {
+        return getTopResearchersLeaderboard(limit);
+    }
+
     private PaperDto mapLocalPaperToDto(ResearchPaper paper) {
         return PaperDto.builder()
                 .id(paper.getId())
