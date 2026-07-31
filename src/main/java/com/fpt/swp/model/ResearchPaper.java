@@ -3,6 +3,7 @@ package com.fpt.swp.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -97,10 +98,6 @@ public class ResearchPaper {
     @Builder.Default
     private PaperSource source = PaperSource.OPENALEX;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "upload_status", length = 20)
-    private UploadStatus uploadStatus;
-
     @Column(name = "rejection_reason", length = 500)
     private String rejectionReason;
 
@@ -136,6 +133,43 @@ public class ResearchPaper {
     @Column(name = "status_comments", columnDefinition = "TEXT")
     private String statusComments;
 
+    // ─── Legal / Copyright fields ──────────────────────────────────────────────
+
+    /** Giấy phép do uploader chọn. Null cho các bài nạp từ OpenAlex/nguồn ngoài. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private License license;
+
+    /** Bài là nghiên cứu gốc của uploader hay đã từng công bố ở nơi khác. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "publication_type", length = 30)
+    private PublicationType publicationType;
+
+    /** Uploader xác nhận là tác giả hoặc có quyền hợp pháp để đăng bài này. */
+    @Column(name = "ownership_confirmed", nullable = false)
+    @Builder.Default
+    private Boolean ownershipConfirmed = false;
+
+    /** Uploader đã đồng ý Upload Agreement / Terms of Service tại thời điểm upload. */
+    @Column(name = "terms_accepted", nullable = false)
+    @Builder.Default
+    private Boolean termsAccepted = false;
+
+    /** Phiên bản Terms of Service mà uploader đã đồng ý (phục vụ audit khi terms thay đổi). */
+    @Column(name = "terms_version", length = 20)
+    private String termsVersion;
+
+    @Column(name = "terms_accepted_at")
+    private LocalDateTime termsAcceptedAt;
+
+    /** IP của uploader tại thời điểm upload — bằng chứng audit khi có tranh chấp. */
+    @Column(name = "uploaded_by_ip", length = 45)
+    private String uploadedByIp;
+
+    /** Nếu khác null, bài chỉ hiển thị công khai sau ngày này dù đã được duyệt. */
+    @Column(name = "embargo_until")
+    private LocalDate embargoUntil;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) createdAt = LocalDateTime.now();
@@ -145,5 +179,32 @@ public class ResearchPaper {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Backwards-compatible view of the moderation status for API consumers that
+     * still read {@code uploadStatus}. Derived from the single source of truth,
+     * {@link #status}.
+     *
+     * <p>If a {@link PaperStatus} value has no matching {@link UploadStatus}
+     * constant (e.g. a newly added status not mirrored here), this returns
+     * {@code null} instead of throwing — so serialization never breaks with a
+     * 500. API consumers should read {@code status} for the authoritative value.
+     */
+    @Transient
+    public UploadStatus getUploadStatus() {
+        if (status == null) return null;
+        try {
+            return UploadStatus.valueOf(status.name());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /** Bài đang trong thời gian embargo — không được hiển thị công khai dù đã duyệt. */
+    @Transient
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean isUnderEmbargo() {
+        return embargoUntil != null && embargoUntil.isAfter(LocalDate.now());
     }
 }

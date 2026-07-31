@@ -34,8 +34,15 @@ public class ResearchPaperUploadService {
     private final UserFollowRepository userFollowRepository;
     private final NotificationService notificationService;
 
+    /**
+     * Phiên bản Terms of Service hiện hành — được đóng dấu vào từng bản ghi upload
+     * làm bằng chứng uploader đã đồng ý điều khoản nào. Không tin giá trị từ client.
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.legal.terms-version:1.0}")
+    private String currentTermsVersion;
+
     @Transactional
-    public PaperDto uploadPaper(UploadPaperRequest request, User user) {
+    public PaperDto uploadPaper(UploadPaperRequest request, User user, String clientIp) {
         log.info("User {} uploading research paper: {}", user.getMail(), request.getTitle());
 
         ResearchPaper paper = new ResearchPaper();
@@ -44,11 +51,24 @@ public class ResearchPaperUploadService {
         paper.setYear(request.getYear());
         paper.setPaperUri(request.getPaperUri());
         paper.setStatus(PaperStatus.PENDING);
+        paper.setSource(PaperSource.USER_UPLOAD);
         paper.setUploadedBy(user);
-        paper.setIsSelfPublished(true);
         paper.setExternalId("uploaded_" + UUID.randomUUID());
         paper.setCitationCount(0);
         paper.setOpenAccess(true);
+
+        // ─── Legal / Copyright: lưu khai báo của uploader + audit trail ─────────
+        paper.setLicense(request.getLicense());
+        paper.setPublicationType(request.getPublicationType());
+        // isSelfPublished suy ra từ khai báo, không hardcode: chỉ luận văn/nghiên cứu
+        // gốc mới là self-published; bài đăng lại thì publisher có thể giữ bản quyền.
+        paper.setIsSelfPublished(request.getPublicationType() == PublicationType.ORIGINAL_THESIS);
+        paper.setOwnershipConfirmed(Boolean.TRUE.equals(request.getOwnershipConfirmed()));
+        paper.setTermsAccepted(Boolean.TRUE.equals(request.getTermsAccepted()));
+        paper.setTermsVersion(currentTermsVersion);
+        paper.setTermsAcceptedAt(java.time.LocalDateTime.now());
+        paper.setUploadedByIp(clientIp);
+        paper.setEmbargoUntil(request.getEmbargoUntil());
 
         if (request.getAuthors() != null) {
             for (String authorName : request.getAuthors()) {
@@ -225,29 +245,30 @@ public class ResearchPaperUploadService {
 
     @Transactional
     public PaperDto revokePaper(Long paperId, User admin) {
-        log.info("Admin {} revoking decision on paper {}", admin.getMail(), paperId);
+        log.info("Admin {} revoking paper {}", admin.getMail(), paperId);
 
         ResearchPaper paper = paperRepository.findById(paperId)
                 .orElseThrow(() -> new EntityNotFoundException("Research paper not found"));
 
-        if (paper.getStatus() == PaperStatus.PENDING) {
-            throw new IllegalStateException("Paper is already pending moderation.");
+        if (paper.getStatus() != PaperStatus.APPROVED) {
+            throw new IllegalStateException(
+                    "Only an approved paper can be revoked. Current status: " + paper.getStatus());
         }
 
-        paper.setStatus(PaperStatus.PENDING);
-        paper.setApprovedBy(null);
-        paper.setStatusComments(null);
+        // Thu hồi: gỡ khỏi công khai. Giữ approvedBy làm lịch sử. Muốn đăng lại thì
+        // admin gọi /api/admin/papers/{id}/approve với status=APPROVED.
+        paper.setStatus(PaperStatus.REVOKED);
 
         ResearchPaper savedPaper = paperRepository.save(paper);
 
-        // Notify researcher that decision has been revoked
+        // Notify researcher that the paper has been revoked
         if (paper.getUploadedBy() != null) {
             try {
                 notificationService.createNotification(
                         paper.getUploadedBy().getId(),
                         NotificationType.APPROVAL,
-                        "Paper Moderation Revoked",
-                        "The decision on your paper \"" + paper.getTitle() + "\" has been revoked by the admin. It is now pending review again."
+                        "Your paper has been revoked",
+                        "Your paper \"" + paper.getTitle() + "\" has been revoked by the admin and is no longer publicly visible."
                 );
             } catch (Exception e) {
                 log.error("Failed to send revocation notification to researcher: {}", e.getMessage());
@@ -263,6 +284,16 @@ public class ResearchPaperUploadService {
                 .map(this::mapLocalPaperToDto);
     }
 
+    @Transactional(readOnly = true)
+    public List<com.fpt.swp.dto.ResearcherLeaderboardDto> getTopResearchersLeaderboard(int limit) {
+        return paperRepository.findTopResearchersByApprovedPapersCount(org.springframework.data.domain.PageRequest.of(0, limit));
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.fpt.swp.dto.ResearcherLeaderboardDto> getLeaderboard(int limit) {
+        return getTopResearchersLeaderboard(limit);
+    }
+
     private PaperDto mapLocalPaperToDto(ResearchPaper paper) {
         return PaperDto.builder()
                 .id(paper.getId())
@@ -274,9 +305,14 @@ public class ResearchPaperUploadService {
                 .openAccess(paper.getOpenAccess())
                 .paperUri(paper.getPaperUri())
                 .status(paper.getStatus() != null ? paper.getStatus().name() : null)
+                .uploadStatus(paper.getUploadStatus() != null ? paper.getUploadStatus().name() : null)
+                .rejectionReason(paper.getRejectionReason())
                 .uploadedBy(paper.getUploadedBy() != null ? paper.getUploadedBy().getMail() : null)
                 .isSelfPublished(paper.getIsSelfPublished())
                 .statusComments(paper.getStatusComments())
+                .license(paper.getLicense() != null ? paper.getLicense().name() : null)
+                .publicationType(paper.getPublicationType() != null ? paper.getPublicationType().name() : null)
+                .embargoUntil(paper.getEmbargoUntil())
                 .authors(paper.getAuthors().stream()
                         .map(a -> AuthorDto.builder()
                                 .id(a.getId())

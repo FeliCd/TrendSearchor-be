@@ -46,7 +46,8 @@ public class BookmarkResponse {
     }
 
     public static BookmarkResponse fromBookmark(Bookmark bookmark) {
-        if (bookmark == null) return null;
+        if (bookmark == null)
+            return null;
 
         PaperInfo paperInfo = null;
         KeywordInfo keywordInfo = null;
@@ -62,7 +63,8 @@ public class BookmarkResponse {
                     .openAccess(p.getOpenAccess())
                     .paperUri(p.getPaperUri())
                     .keywords(p.getKeywords() != null
-                            ? p.getKeywords().stream().map(k -> k.getDisplayName() != null ? k.getDisplayName() : k.getName()).toList()
+                            ? p.getKeywords().stream()
+                                    .map(k -> k.getDisplayName() != null ? k.getDisplayName() : k.getName()).toList()
                             : java.util.List.of())
                     .build();
         }

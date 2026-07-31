@@ -6,28 +6,35 @@ Tài liệu này hướng dẫn team FE cách gọi và xử lý dữ liệu cho
 
 ## 1. 📝 Tính năng Upload Bài (Dành cho Role: `RESEARCHER`, `LECTURER`, `ADMIN`)
 
-### 1.1. Upload bài báo mới
+### 1.1. Upload bài báo mới (⚠️ ĐÃ CẬP NHẬT — có field pháp lý bắt buộc)
 - **Endpoint:** `POST /api/papers/upload`
-- **Quyền yêu cầu:** Phải kèm Header `Authorization: Bearer <token>`
+- **Quyền yêu cầu:** Phải kèm Header `Authorization: Bearer <token>` (role RESEARCHER/ADMIN)
 - **Body (JSON):**
 ```json
 {
-  "title": "Tên bài báo (Bắt buộc)",
-  "abstractText": "Tóm tắt bài báo (Optional)",
+  "title": "Tên bài báo (BẮT BUỘC, ≤1000 ký tự)",
+  "abstractText": "Tóm tắt bài báo (BẮT BUỘC, ≤10000 ký tự)",
   "year": 2026,
+  "paperUri": "https://doi.org/... (optional, ≤500 ký tự)",
+  "authors": ["Nguyen Van A"],
+  "journals": ["Tên tạp chí (optional)"],
   "keywords": ["ai", "machine learning"],
-  "pdfUrl": "https://link-to-pdf.com/file.pdf"
+
+  "license": "CC_BY | CC_BY_NC | ALL_RIGHTS_RESERVED | AUTHOR_AGREEMENT (BẮT BUỘC)",
+  "publicationType": "ORIGINAL_THESIS | PREVIOUSLY_PUBLISHED (BẮT BUỘC)",
+  "ownershipConfirmed": true,
+  "termsAccepted": true,
+  "embargoUntil": "2027-01-01 (optional, phải là ngày tương lai)"
 }
 ```
-- **Response (201 Created):**
-```json
-{
-  "message": "Paper submitted for review",
-  "paperId": 12,
-  "status": "PENDING"
-}
-```
-> **Lưu ý FE:** Sau khi upload thành công, hãy hiển thị thông báo toast: "Bài báo của bạn đã được gửi đi và đang chờ duyệt".
+- **Response (201 Created):** object `PaperDto` đầy đủ (có `id`, `status: "PENDING"`, `license`, `publicationType`, `embargoUntil`...).
+- **Response (400):** thiếu `license`/`publicationType`, hoặc `ownershipConfirmed`/`termsAccepted` khác `true` → body trả map `{field: message}`.
+
+> **Lưu ý FE (QUAN TRỌNG):**
+> 1. Form upload phải có **2 checkbox bắt buộc**: "Tôi là tác giả / có quyền đăng bài này" (`ownershipConfirmed`) và "Tôi đồng ý với [Điều khoản đăng tải](TERMS_OF_SERVICE.md)" (`termsAccepted`). Không tick → disable nút submit.
+> 2. Dropdown chọn `license` (4 giá trị) và `publicationType` (2 giá trị). Nếu user chọn `PREVIOUSLY_PUBLISHED`, nên hiện cảnh báo "Hãy đảm bảo nhà xuất bản cho phép đăng lại".
+> 3. `embargoUntil` là date picker tùy chọn — bài sẽ ẩn khỏi công khai đến hết ngày này.
+> 4. Sau khi upload thành công, hiển thị toast: "Bài báo của bạn đã được gửi đi và đang chờ duyệt".
 
 ### 1.2. Xem danh sách bài đã upload của chính mình
 - **Endpoint:** `GET /api/papers/my-uploads`
@@ -50,14 +57,17 @@ Dành cho giao diện **Moderation Dashboard**.
   "pendingCount": 5,
   "approvedCount": 10,
   "rejectedCount": 2,
-  "totalUploads": 17
+  "totalUploads": 17,
+  "takenDownCount": 1,
+  "revokedCount": 0,
+  "pendingCopyrightReports": 3
 }
 ```
 
 ### 2.2. Xem danh sách bài theo trạng thái
 - **Endpoint:** `GET /api/moderation/papers`
 - **Query Params:**
-  - `status`: `PENDING` | `APPROVED` | `REJECTED` (Mặc định là `PENDING`)
+  - `status`: `PENDING` | `APPROVED` | `REJECTED` | `TAKEN_DOWN` | `REVOKED` (Mặc định là `PENDING`)
   - `page`, `size`
 - **Response (200 OK):** `Page<ResearchPaper>`
 
@@ -128,3 +138,33 @@ Nếu Frontend làm giao diện Admin quản lý User, để cấp quyền Moder
 }
 ```
 > Ngay sau khi gọi API này, User đó (nếu đang đăng nhập) cần F5 lại để nhận quyền truy cập vào các API Moderation.
+> ⚠️ Endpoint cũ `PATCH /api/admin/users/{id}/moderator` (cờ isModerator) **đã bị xoá** — chỉ dùng `/role`. Field `isModerator` trong `UserResponse` vẫn tồn tại nhưng giờ được suy ra từ `role === "MODERATOR"`.
+
+---
+
+## 6. ⚖️ Bản quyền & Gỡ bài (Notice-and-Takedown) — MỚI
+
+### 6.1. User báo cáo bài vi phạm bản quyền
+- **Endpoint:** `POST /api/papers/{id}/copyright-report`
+- **Quyền:** cần đăng nhập (mọi role)
+- **Body:** `{ "reason": "Bài này sao chép luận văn của tôi... (≤2000 ký tự)" }`
+- **Response (201):** object `CopyrightReportDto`
+- **Response (400):** bài đã bị gỡ rồi, hoặc user này đã có report đang chờ trên cùng bài (chống spam)
+
+### 6.2. Moderator xem hàng đợi report (Role: MODERATOR/ADMIN)
+- **Endpoint:** `GET /api/moderation/copyright-reports?status=PENDING&page=0&size=10`
+- `status`: `PENDING` | `DISMISSED` | `ACTION_TAKEN`
+- **Response:** `Page<CopyrightReportDto>` — mỗi item có `paperId`, `paperTitle`, `reportedByMail`, `reason`, `createdAt`...
+
+### 6.3. Moderator xử lý report
+- **Endpoint:** `PATCH /api/moderation/copyright-reports/{id}/resolve`
+- **Body:** `{ "action": "DISMISS" | "TAKE_DOWN", "notes": "ghi chú (optional, ≤2000)" }`
+- `TAKE_DOWN`: bài chuyển `TAKEN_DOWN` (biến mất khỏi search + truy cập trực tiếp trả 404), uploader và mọi người report đều nhận notification; các report chờ khác của cùng bài tự đóng.
+- `DISMISS`: bài giữ nguyên, report đóng lại.
+
+### 6.4. Hành vi hiển thị FE cần biết
+- `PaperDto` giờ có thêm: `license`, `publicationType`, `embargoUntil` → FE nên hiển thị **badge license** (VD: `CC BY`, `All Rights Reserved`) trên trang chi tiết bài.
+- Bài đang **embargo** (`embargoUntil` > hôm nay): không xuất hiện trong search/list công khai; truy cập trực tiếp trả **404** — trừ chính uploader (vẫn thấy bài của mình trong my-uploads và qua link trực tiếp, hãy hiển thị nhãn "Đang embargo đến {date}").
+- Bài `TAKEN_DOWN`: tương tự — 404 với mọi người trừ uploader.
+- Nên đặt link "🚩 Báo cáo vi phạm bản quyền" trên trang chi tiết bài (chỉ hiện khi đã đăng nhập).
+- Nội dung điều khoản để hiển thị trong form upload: xem file `TERMS_OF_SERVICE.md` (version 1.0).

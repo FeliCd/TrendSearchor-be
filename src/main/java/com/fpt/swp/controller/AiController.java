@@ -1,9 +1,17 @@
 package com.fpt.swp.controller;
 
+import com.fpt.swp.dto.PaperDto;
 import com.fpt.swp.dto.PaperSearchResponse;
+import com.fpt.swp.dto.QuotaStatusDto;
 import com.fpt.swp.dto.ai.*;
+import java.util.List;
+import com.fpt.swp.exception.RateLimitExceededException;
+import com.fpt.swp.service.AiQuotaService;
+import com.fpt.swp.service.AiRateLimiter;
 import com.fpt.swp.service.AiService;
+import com.fpt.swp.service.OpenRouterClient;
 import com.fpt.swp.util.AuthUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -12,13 +20,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * REST Controller cho các tính năng AI:
- * <ul>
- *   <li>POST /api/ai/abstract          — FR-10.6: AI hỗ trợ viết/review abstract</li>
- *   <li>GET  /api/ai/recommendations   — R-10.4:  Gợi ý chủ đề nghiên cứu</li>
- *   <li>POST /api/ai/search            — FR-10.1: Tìm kiếm bằng ngôn ngữ tự nhiên</li>
- *   <li>POST /api/ai/trend-qa          — FR-10.2: Hỏi AI về xu hướng nghiên cứu</li>
- * </ul>
+ * REST Controller cho các tính năng AI. Mọi endpoint đều cần đăng nhập và chịu:
+ *   1. rate limit chống burst (AiRateLimiter, 20/phút),
+ *   2. hạn mức theo tier (AiQuotaService — FREE 3/24h, PRO 50/24h; ADMIN không giới hạn).
+ * Quota chỉ bị trừ khi LLM thực sự trả kết quả (không trừ khi rơi vào fallback).
  */
 @RestController
 @RequestMapping("/api/ai")
@@ -27,81 +32,137 @@ public class AiController {
 
     private final AiService aiService;
     private final AuthUtils authUtils;
+    private final AiRateLimiter aiRateLimiter;
+    private final AiQuotaService aiQuotaService;
 
-    // -------------------------------------------------------------------------
-    // FR-10.6: Abstract Assistant
-    // -------------------------------------------------------------------------
+    // ─── Feature codes (khớp cột ai_usage_log.feature) ─────────────────────────
+    private static final String F_SEARCH = "SEARCH";
+    private static final String F_TREND_QA = "TREND_QA";
+    private static final String F_SUMMARIZE = "SUMMARIZE";
+    private static final String F_RERANK = "RERANK";
+    private static final String F_ABSTRACT = "ABSTRACT";
+    private static final String F_RECOMMENDATIONS = "RECOMMENDATIONS";
+
+    private boolean isUnlimited(UserDetails userDetails) {
+        return userDetails != null && userDetails.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+    }
 
     /**
-     * AI hỗ trợ viết/review abstract của Researcher.
-     * Các action: CLEANUP | SPELLCHECK | SUGGEST_MISSING | EVALUATE
-     *
-     * @param request  action và nội dung abstract
-     * @return kết quả xử lý từ AI
+     * Chạy trước mỗi lượt gọi AI: rate-limit + quota + reset cờ LLM. Trả userId.
      */
+    private Long beforeAiCall(UserDetails userDetails, HttpServletRequest httpRequest) {
+        Long userId = authUtils.extractUserId(userDetails);
+        String key = userId != null ? "user:" + userId
+                : "ip:" + com.fpt.swp.util.RequestUtils.clientIp(httpRequest);
+        if (!aiRateLimiter.tryAcquire(key)) {
+            throw new RateLimitExceededException(
+                    "Too many AI requests. Please wait a moment before trying again.");
+        }
+        if (userId != null && !isUnlimited(userDetails)) {
+            aiQuotaService.checkQuota(userId);
+        }
+        OpenRouterClient.resetCallFlag();
+        return userId;
+    }
+
+    /**
+     * Chạy sau khi gọi AI: trừ 1 lượt quota nếu LLM thực sự chạy (không trừ ADMIN / fallback).
+     */
+    private void afterAiCall(UserDetails userDetails, Long userId, String feature) {
+        if (userId != null && !isUnlimited(userDetails) && OpenRouterClient.wasLlmCallSuccessful()) {
+            aiQuotaService.recordUsage(userId, feature);
+        }
+    }
+
+    // ─── Quota status ──────────────────────────────────────────────────────────
+
+    /** FE gọi để hiển thị "còn X/limit lượt hôm nay". */
+    @GetMapping("/quota")
+    public ResponseEntity<QuotaStatusDto> getQuota(@AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = authUtils.extractUserId(userDetails);
+        if (userId == null) return ResponseEntity.status(401).build();
+        if (isUnlimited(userDetails)) {
+            return ResponseEntity.ok(QuotaStatusDto.builder()
+                    .tier("ADMIN").dailyLimit(-1).used(0).remaining(-1).unlimited(true).build());
+        }
+        return ResponseEntity.ok(aiQuotaService.getQuotaStatus(userId));
+    }
+
+    // ─── FR-10.6: Abstract Assistant ───────────────────────────────────────────
+
     @PostMapping("/abstract")
     public ResponseEntity<AbstractAssistResponse> processAbstract(
             @Valid @RequestBody AbstractAssistRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        // Endpoint yêu cầu đăng nhập — security filter sẽ chặn nếu chưa auth
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest httpRequest) {
+        Long userId = beforeAiCall(userDetails, httpRequest);
         AbstractAssistResponse response = aiService.processAbstract(request);
+        afterAiCall(userDetails, userId, F_ABSTRACT);
         return ResponseEntity.ok(response);
     }
 
-    // -------------------------------------------------------------------------
-    // R-10.4: Research Recommendations
-    // -------------------------------------------------------------------------
+    // ─── R-10.4: Research Recommendations ──────────────────────────────────────
 
-    /**
-     * Gợi ý keyword/topic nghiên cứu mới dựa trên bookmark và follow của user.
-     * Cần đăng nhập.
-     *
-     * @return danh sách gợi ý cá nhân hóa
-     */
     @GetMapping("/recommendations")
     public ResponseEntity<ResearchRecommendationResponse> getRecommendations(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        Long userId = authUtils.extractUserId(userDetails);
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest httpRequest) {
+        Long userId = beforeAiCall(userDetails, httpRequest);
         ResearchRecommendationResponse response = aiService.getRecommendations(userId);
+        afterAiCall(userDetails, userId, F_RECOMMENDATIONS);
         return ResponseEntity.ok(response);
     }
 
-    // -------------------------------------------------------------------------
-    // FR-10.1: Natural Language Search
-    // -------------------------------------------------------------------------
+    // ─── FR-10.1: Natural Language Search ──────────────────────────────────────
 
-    /**
-     * Tìm kiếm bài báo bằng câu hỏi tự nhiên.
-     * VD: "Tìm bài báo của Vaswani về attention năm 2017"
-     *
-     * @param request  câu hỏi tự nhiên
-     * @return kết quả tìm kiếm (cùng format với GET /api/papers/search)
-     */
     @PostMapping("/search")
     public ResponseEntity<PaperSearchResponse> naturalLanguageSearch(
             @Valid @RequestBody NlSearchRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        Long userId = authUtils.extractUserId(userDetails);
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest httpRequest) {
+        Long userId = beforeAiCall(userDetails, httpRequest);
         PaperSearchResponse response = aiService.naturalLanguageSearch(request, userId);
+        afterAiCall(userDetails, userId, F_SEARCH);
         return ResponseEntity.ok(response);
     }
 
-    // -------------------------------------------------------------------------
-    // FR-10.2: Trend Q&A
-    // -------------------------------------------------------------------------
+    // ─── FR-10.2: Trend Q&A ────────────────────────────────────────────────────
 
-    /**
-     * Hỏi AI về xu hướng nghiên cứu bằng ngôn ngữ tự nhiên.
-     * AI sẽ lấy dữ liệu trend thực tế từ hệ thống để trả lời có phân tích.
-     *
-     * @param request  câu hỏi và keyword tùy chọn
-     * @return câu trả lời phân tích kèm data context
-     */
     @PostMapping("/trend-qa")
     public ResponseEntity<TrendQaResponse> answerTrendQuestion(
             @Valid @RequestBody TrendQaRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest httpRequest) {
+        Long userId = beforeAiCall(userDetails, httpRequest);
         TrendQaResponse response = aiService.answerTrendQuestion(request);
+        afterAiCall(userDetails, userId, F_TREND_QA);
+        return ResponseEntity.ok(response);
+    }
+
+    // ─── Paper Summarize ───────────────────────────────────────────────────────
+
+    @PostMapping("/summarize")
+    public ResponseEntity<PaperSummaryResponse> summarizePaper(
+            @Valid @RequestBody PaperSummaryRequest request,
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest httpRequest) {
+        Long userId = beforeAiCall(userDetails, httpRequest);
+        PaperSummaryResponse response = aiService.summarizePaper(request);
+        afterAiCall(userDetails, userId, F_SUMMARIZE);
+        return ResponseEntity.ok(response);
+    }
+
+    // ─── Paper Rerank ──────────────────────────────────────────────────────────
+
+    @PostMapping("/rerank")
+    public ResponseEntity<List<PaperDto>> rerankPapers(
+            @Valid @RequestBody PaperRerankRequest request,
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest httpRequest) {
+        Long userId = beforeAiCall(userDetails, httpRequest);
+        List<PaperDto> response = aiService.rerankPapers(request);
+        afterAiCall(userDetails, userId, F_RERANK);
         return ResponseEntity.ok(response);
     }
 }

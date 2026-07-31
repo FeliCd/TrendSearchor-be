@@ -67,6 +67,10 @@ public class SearchService {
             }
             localApprovedPapers = localPage.getContent().stream()
                     .filter(p -> {
+                        // Bài đang embargo không hiển thị công khai dù đã duyệt
+                        if (p.isUnderEmbargo()) {
+                            return false;
+                        }
                         // Filter by year
                         if (request.getYear() != null && request.getYear() > 0) {
                             if (p.getYear() == null || !p.getYear().equals(request.getYear())) {
@@ -160,6 +164,8 @@ public class SearchService {
 
         List<PaperDto> openAlexPapers = rawPapers.stream()
                 .map(p -> mapToPaperDto(p, userId))
+                // Bỏ record rác: title null/rỗng/quá ngắn/còn URL-encode (thường cũng là bài link hỏng)
+                .filter(p -> !com.fpt.swp.util.TextUtils.isUnusableTitle(p.getTitle()))
                 .collect(Collectors.toList());
 
         List<PaperDto> mergedPapers = new ArrayList<>(localApprovedPapers);
@@ -239,7 +245,7 @@ public class SearchService {
                             p.put("paperId", doi != null ? "https://doi.org/" + doi : null);
                             String title = "Untitled";
                             if (item.has("title") && item.get("title").isArray() && item.get("title").size() > 0) {
-                                title = item.get("title").get(0).asText();
+                                title = com.fpt.swp.util.TextUtils.decodeIfPercentEncoded(item.get("title").get(0).asText());
                             }
                             p.put("title", title);
                             String abs = null;
@@ -366,7 +372,7 @@ public class SearchService {
     @Transactional(readOnly = true)
     public PaperDto getPaperById(Long id, Long userId) {
         ResearchPaper paper = paperRepository.findById(id).orElse(null);
-        if (paper == null) return null;
+        if (paper == null || !isViewableBy(paper, userId)) return null;
 
         PaperDto dto = mapLocalPaperToDto(paper);
         if (userId != null) {
@@ -378,13 +384,28 @@ public class SearchService {
     @Transactional(readOnly = true)
     public PaperDto getPaperByExternalId(String externalId, Long userId) {
         ResearchPaper paper = paperRepository.findByExternalId(externalId).orElse(null);
-        if (paper == null) return null;
+        if (paper == null || !isViewableBy(paper, userId)) return null;
 
         PaperDto dto = mapLocalPaperToDto(paper);
         if (userId != null) {
             dto.setIsBookmarked(bookmarkRepository.existsByUserIdAndPaperId(userId, paper.getId()));
         }
         return dto;
+    }
+
+    /**
+     * Bài TAKEN_DOWN (bị gỡ vì vi phạm bản quyền) hoặc đang embargo không được
+     * xem qua truy cập trực tiếp — ngoại lệ duy nhất là chính uploader
+     * (moderator/admin xem qua API moderation riêng).
+     */
+    private boolean isViewableBy(ResearchPaper paper, Long userId) {
+        boolean hidden = paper.getStatus() == PaperStatus.TAKEN_DOWN
+                || paper.getStatus() == PaperStatus.REVOKED
+                || paper.isUnderEmbargo();
+        if (!hidden) return true;
+        return userId != null
+                && paper.getUploadedBy() != null
+                && userId.equals(paper.getUploadedBy().getId());
     }
 
     public PaperDto mapLocalPaperToDto(ResearchPaper paper) {
@@ -416,6 +437,9 @@ public class SearchService {
                 .uploadedBy(paper.getUploadedBy() != null ? paper.getUploadedBy().getMail() : null)
                 .isSelfPublished(paper.getIsSelfPublished())
                 .statusComments(paper.getStatusComments())
+                .license(paper.getLicense() != null ? paper.getLicense().name() : null)
+                .publicationType(paper.getPublicationType() != null ? paper.getPublicationType().name() : null)
+                .embargoUntil(paper.getEmbargoUntil())
                 .build();
     }
 

@@ -74,14 +74,16 @@ public class SecurityConfig {
 
                     auth.requestMatchers("/api/auth/**", "/error").permitAll();
                     auth.requestMatchers("/api/dashboard/public", "/api/trends/**").permitAll();
+                    // Pricing is public; subscribe/payment/quota fall through to authenticated
+                    auth.requestMatchers(HttpMethod.GET, "/api/plans").permitAll();
                     // Public read access to papers/journals/authors/keywords (GET only)
                     auth.requestMatchers(HttpMethod.GET, "/api/papers/**", "/api/journals/**", "/api/authors/**", "/api/keywords/**", "/api/topics/**", "/api/top-papers").permitAll();
                     // Paper upload requires authentication (role checked via @PreAuthorize)
                     auth.requestMatchers(HttpMethod.POST, "/api/papers/upload").authenticated();
                     // Moderation requires authentication (role checked via @PreAuthorize)
                     auth.requestMatchers("/api/moderation/**").authenticated();
-                    // AI endpoints: search and trend-qa are public; abstract and recommendations require login
-                    auth.requestMatchers(HttpMethod.POST, "/api/ai/search", "/api/ai/trend-qa").permitAll();
+                    // AI endpoints: ALL require login — quota is enforced per user (FREE 3/24h,
+                    // PRO 50/24h). No anonymous access so usage can't be spoofed via IP.
                     auth.requestMatchers("/api/ai/**").authenticated();
                     auth.anyRequest().authenticated();
                 });

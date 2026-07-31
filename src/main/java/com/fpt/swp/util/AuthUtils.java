@@ -24,4 +24,9 @@ public class AuthUtils {
             return null;
         }
     }
+
+    public boolean isAdmin(UserDetails userDetails) {
+        return userDetails != null && userDetails.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+    }
 }

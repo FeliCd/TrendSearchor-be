@@ -255,7 +255,7 @@ public class OpenAlexService {
         String id = node.has("id") ? node.get("id").asText() : null;
         paper.put("paperId", id != null ? id.replace("https://openalex.org/", "") : null);
         paper.put("id", id);
-        paper.put("title", getTextOrNull(node, "title"));
+        paper.put("title", com.fpt.swp.util.TextUtils.decodeIfPercentEncoded(getTextOrNull(node, "title")));
 
         // Reconstruct abstract from inverted index
         if (node.has("abstract_inverted_index") && !node.get("abstract_inverted_index").isNull()) {

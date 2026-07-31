@@ -27,13 +27,14 @@ public class ModerationService {
     private final UserRepository userRepository;
     private final ResearchTopicRepository topicRepository;
     private final NotificationService notificationService;
+    private final com.fpt.swp.repository.CopyrightReportRepository copyrightReportRepository;
 
     /**
-     * Get papers filtered by upload status for moderation queue.
+     * Get papers filtered by moderation status for the moderation queue.
      */
     @Transactional(readOnly = true)
-    public Page<ResearchPaper> getPapersByStatus(UploadStatus status, int page, int size) {
-        return paperRepository.findByUploadStatus(status, PageRequest.of(page, size));
+    public Page<ResearchPaper> getPapersByStatus(PaperStatus status, int page, int size) {
+        return paperRepository.findModerationByStatus(status, PageRequest.of(page, size));
     }
 
     /**
@@ -53,11 +54,11 @@ public class ModerationService {
         ResearchPaper paper = paperRepository.findById(paperId)
                 .orElseThrow(() -> new EntityNotFoundException("Paper not found: " + paperId));
 
-        if (paper.getUploadStatus() != UploadStatus.PENDING) {
-            throw new IllegalArgumentException("Paper is not in PENDING status. Current: " + paper.getUploadStatus());
+        if (paper.getStatus() != PaperStatus.PENDING) {
+            throw new IllegalArgumentException("Paper is not in PENDING status. Current: " + paper.getStatus());
         }
 
-        paper.setUploadStatus(UploadStatus.APPROVED);
+        paper.setStatus(PaperStatus.APPROVED);
         paper.setRejectionReason(null);
         
         // Approve any pending topics associated with this paper
@@ -112,11 +113,11 @@ public class ModerationService {
         ResearchPaper paper = paperRepository.findById(paperId)
                 .orElseThrow(() -> new EntityNotFoundException("Paper not found: " + paperId));
 
-        if (paper.getUploadStatus() != UploadStatus.PENDING) {
-            throw new IllegalArgumentException("Paper is not in PENDING status. Current: " + paper.getUploadStatus());
+        if (paper.getStatus() != PaperStatus.PENDING) {
+            throw new IllegalArgumentException("Paper is not in PENDING status. Current: " + paper.getStatus());
         }
 
-        paper.setUploadStatus(UploadStatus.REJECTED);
+        paper.setStatus(PaperStatus.REJECTED);
         paper.setRejectionReason(reason);
         ResearchPaper saved = paperRepository.save(paper);
 
@@ -143,10 +144,14 @@ public class ModerationService {
     @Transactional(readOnly = true)
     public ModerationStatsDto getStats() {
         return ModerationStatsDto.builder()
-                .pendingCount(paperRepository.countByUploadStatus(UploadStatus.PENDING))
-                .approvedCount(paperRepository.countByUploadStatus(UploadStatus.APPROVED))
-                .rejectedCount(paperRepository.countByUploadStatus(UploadStatus.REJECTED))
+                .pendingCount(paperRepository.countByStatus(PaperStatus.PENDING))
+                .approvedCount(paperRepository.countByStatus(PaperStatus.APPROVED))
+                .rejectedCount(paperRepository.countByStatus(PaperStatus.REJECTED))
                 .totalUploads(paperRepository.countUserUploads())
+                .takenDownCount(paperRepository.countByStatus(PaperStatus.TAKEN_DOWN))
+                .revokedCount(paperRepository.countByStatus(PaperStatus.REVOKED))
+                .pendingCopyrightReports(copyrightReportRepository.countByStatus(
+                        com.fpt.swp.model.CopyrightReportStatus.PENDING))
                 .build();
     }
 }
