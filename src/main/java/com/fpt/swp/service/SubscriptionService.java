@@ -1,5 +1,6 @@
 package com.fpt.swp.service;
 
+import com.fpt.swp.dto.AdminUserSubscriptionDto;
 import com.fpt.swp.model.*;
 import com.fpt.swp.repository.PaymentTransactionRepository;
 import com.fpt.swp.repository.SubscriptionPlanRepository;
@@ -29,6 +30,8 @@ import java.util.UUID;
 public class SubscriptionService {
 
     public static final String FREE_CODE = "FREE";
+    public static final String PRO_CODE = "PRO";
+    public static final String UNLIMITED_CODE = "UNLIMITED";
 
     private final SubscriptionPlanRepository planRepository;
     private final UserSubscriptionRepository subscriptionRepository;
@@ -62,6 +65,20 @@ public class SubscriptionService {
         return planRepository.findByActiveTrueOrderByPriceAsc();
     }
 
+    @Transactional
+    public SubscriptionPlan ensureUnlimitedPlanExists() {
+        return planRepository.findByCode(UNLIMITED_CODE)
+                .orElseGet(() -> planRepository.saveAndFlush(SubscriptionPlan.builder()
+                        .code(UNLIMITED_CODE)
+                        .name("Unlimited")
+                        .description("Unlimited AI search queries and token generations 24/7.")
+                        .price(new java.math.BigDecimal("499000.00"))
+                        .durationDays(30)
+                        .dailyPromptLimit(-1)
+                        .active(true)
+                        .build()));
+    }
+
     // ─── Subscribe (tạo bản ghi chờ thanh toán) ────────────────────────────────
 
     /**
@@ -74,12 +91,19 @@ public class SubscriptionService {
     public PaymentTransaction subscribe(Long userId, String planCode, String paymentMethod) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+
         SubscriptionPlan plan = planRepository.findByCode(planCode)
-                .orElseThrow(() -> new IllegalArgumentException("Plan not found: " + planCode));
+                .orElseGet(() -> {
+                    if (UNLIMITED_CODE.equalsIgnoreCase(planCode)) {
+                        return ensureUnlimitedPlanExists();
+                    }
+                    throw new IllegalArgumentException("Plan not found: " + planCode);
+                });
 
         if (FREE_CODE.equalsIgnoreCase(plan.getCode()) || plan.getPrice().signum() <= 0) {
             throw new IllegalArgumentException("This plan is free and does not require a subscription.");
         }
+
 
         UserSubscription subscription = UserSubscription.builder()
                 .user(user)
@@ -101,4 +125,87 @@ public class SubscriptionService {
         log.info("Subscription initiated: user={}, plan={}, txn={}", userId, planCode, txn.getTransactionId());
         return txn;
     }
+
+    // ─── Admin Management ──────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<AdminUserSubscriptionDto> getAllUserSubscriptionsForAdmin() {
+        List<User> users = userRepository.findAll();
+        LocalDateTime now = LocalDateTime.now();
+
+        return users.stream().map(user -> {
+            List<UserSubscription> activeSubs = subscriptionRepository.findActiveByUserId(user.getId(), now);
+            UserSubscription activeSub = activeSubs.isEmpty() ? null : activeSubs.get(0);
+
+            String planId = activeSub != null ? activeSub.getPlan().getCode() : FREE_CODE;
+            String status = activeSub != null ? activeSub.getStatus().name() : "ACTIVE";
+            LocalDateTime startDate = activeSub != null ? activeSub.getStartDate() : user.getCreatedAt();
+            LocalDateTime endDate = activeSub != null ? activeSub.getEndDate() : null;
+
+            return AdminUserSubscriptionDto.builder()
+                    .id(activeSub != null ? String.valueOf(activeSub.getId()) : "sub_user_" + user.getId())
+                    .userId(user.getId())
+                    .userName(user.getFullName() != null && !user.getFullName().isBlank() ? user.getFullName() : user.getMail())
+                    .userEmail(user.getMail())
+                    .role(user.getRole() != null ? user.getRole().name() : "RESEARCHER")
+                    .planId(planId)
+                    .status(status)
+                    .startDate(startDate)
+                    .endDate(endDate)
+                    .grantedByAdmin(activeSub != null && activeSub.getStartDate() != null && activeSub.getEndDate() != null)
+                    .build();
+        }).toList();
+    }
+
+    @Transactional
+    public AdminUserSubscriptionDto grantSubscriptionForAdmin(Long userId, String planCode, Integer durationDays) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+        SubscriptionPlan plan = planRepository.findByCode(planCode)
+                .orElseGet(() -> {
+                    if (UNLIMITED_CODE.equalsIgnoreCase(planCode)) {
+                        return ensureUnlimitedPlanExists();
+                    }
+                    throw new IllegalArgumentException("Plan not found: " + planCode);
+                });
+
+
+        LocalDateTime now = LocalDateTime.now();
+        int days = (durationDays != null && durationDays > 0) ? durationDays : (plan.getDurationDays() > 0 ? plan.getDurationDays() : 30);
+        LocalDateTime endDate = days > 0 ? now.plusDays(days) : null;
+
+        UserSubscription subscription = UserSubscription.builder()
+                .user(user)
+                .plan(plan)
+                .status(SubscriptionStatus.ACTIVE)
+                .startDate(now)
+                .endDate(endDate)
+                .build();
+
+        subscription = subscriptionRepository.save(subscription);
+
+        return AdminUserSubscriptionDto.builder()
+                .id(String.valueOf(subscription.getId()))
+                .userId(user.getId())
+                .userName(user.getFullName() != null && !user.getFullName().isBlank() ? user.getFullName() : user.getMail())
+                .userEmail(user.getMail())
+                .role(user.getRole() != null ? user.getRole().name() : "RESEARCHER")
+                .planId(plan.getCode())
+                .status(SubscriptionStatus.ACTIVE.name())
+                .startDate(now)
+                .endDate(endDate)
+                .grantedByAdmin(true)
+                .build();
+    }
+
+    @Transactional
+    public void revokeSubscriptionForAdmin(Long userId) {
+        List<UserSubscription> activeSubs = subscriptionRepository.findActiveByUserId(userId, LocalDateTime.now());
+        for (UserSubscription sub : activeSubs) {
+            sub.setStatus(SubscriptionStatus.CANCELLED);
+            sub.setEndDate(LocalDateTime.now());
+            subscriptionRepository.save(sub);
+        }
+    }
 }
+

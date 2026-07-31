@@ -12,5 +12,8 @@ public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPl
 
     Optional<SubscriptionPlan> findByCode(String code);
 
+    boolean existsByCode(String code);
+
     List<SubscriptionPlan> findByActiveTrueOrderByPriceAsc();
 }
+

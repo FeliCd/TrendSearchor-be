@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequiredArgsConstructor
 public class SubscriptionController {
@@ -80,4 +82,34 @@ public class SubscriptionController {
                 "mockConfirmEndpoint", "/api/payments/mock-confirm"
         ));
     }
+
+    // ─── Admin Management Endpoints ────────────────────────────────────────────
+
+    /** Danh sách tất cả người dùng và gói dịch vụ — Dành cho ADMIN. */
+    @GetMapping("/api/admin/subscriptions")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<com.fpt.swp.dto.AdminUserSubscriptionDto>> getAllSubscriptionsForAdmin() {
+        return ResponseEntity.ok(subscriptionService.getAllUserSubscriptionsForAdmin());
+    }
+
+    /** Admin cấp gói trực tiếp cho một user. */
+    @PostMapping("/api/admin/subscriptions/grant")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> grantSubscriptionForAdmin(@Valid @RequestBody com.fpt.swp.dto.AdminGrantSubscriptionRequest request) {
+        com.fpt.swp.dto.AdminUserSubscriptionDto dto = subscriptionService.grantSubscriptionForAdmin(
+                request.getUserId(), request.getPlanCode(), request.getDurationDays());
+        return ResponseEntity.ok(Map.of(
+                "message", "Subscription granted successfully",
+                "data", dto
+        ));
+    }
+
+    /** Admin thu hồi gói của một user (trở về FREE). */
+    @PostMapping("/api/admin/subscriptions/revoke/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> revokeSubscriptionForAdmin(@PathVariable Long userId) {
+        subscriptionService.revokeSubscriptionForAdmin(userId);
+        return ResponseEntity.ok(Map.of("message", "Subscription revoked successfully"));
+    }
 }
+

@@ -39,6 +39,9 @@ public class AiQuotaService {
     @Transactional(readOnly = true)
     public void checkQuota(Long userId) {
         SubscriptionPlan plan = subscriptionService.getEffectivePlan(userId);
+        if (plan.getDailyPromptLimit() < 0 || "UNLIMITED".equalsIgnoreCase(plan.getCode())) {
+            return;
+        }
         int limit = plan.getDailyPromptLimit();
         LocalDateTime since = windowStart();
         long used = usageLogRepository.countByUserSince(userId, since);
@@ -64,9 +67,22 @@ public class AiQuotaService {
     @Transactional(readOnly = true)
     public QuotaStatusDto getQuotaStatus(Long userId) {
         SubscriptionPlan plan = subscriptionService.getEffectivePlan(userId);
+        boolean isUnlimited = plan.getDailyPromptLimit() < 0 || "UNLIMITED".equalsIgnoreCase(plan.getCode());
         int limit = plan.getDailyPromptLimit();
         LocalDateTime since = windowStart();
         long used = usageLogRepository.countByUserSince(userId, since);
+
+        if (isUnlimited) {
+            return QuotaStatusDto.builder()
+                    .tier(plan.getCode())
+                    .dailyLimit(-1)
+                    .used((int) used)
+                    .remaining(-1)
+                    .unlimited(true)
+                    .nextAvailableAt(null)
+                    .build();
+        }
+
         long remaining = Math.max(0, limit - used);
         LocalDateTime nextAvailableAt = null;
         if (remaining == 0) {
@@ -82,4 +98,5 @@ public class AiQuotaService {
                 .nextAvailableAt(nextAvailableAt)
                 .build();
     }
+
 }
