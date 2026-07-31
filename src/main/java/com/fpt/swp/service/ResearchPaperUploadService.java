@@ -285,22 +285,13 @@ public class ResearchPaperUploadService {
     }
 
     @Transactional(readOnly = true)
-    public List<java.util.Map<String, Object>> getLeaderboard(int limit) {
-        List<User> users = userRepository.findAll();
-        return users.stream()
-                .map(u -> {
-                    long count = paperRepository.findByUploadedById(u.getId(), org.springframework.data.domain.PageRequest.of(0, 100)).getContent().stream()
-                            .filter(p -> p.getStatus() == PaperStatus.APPROVED)
-                            .count();
-                    java.util.Map<String, Object> map = new java.util.HashMap<>();
-                    map.put("fullName", u.getFullName() != null ? u.getFullName() : "Anonymous Researcher");
-                    map.put("mail", u.getMail());
-                    map.put("approvedPapersCount", count);
-                    return map;
-                })
-                .sorted((a, b) -> Long.compare((Long) b.get("approvedPapersCount"), (Long) a.get("approvedPapersCount")))
-                .limit(limit)
-                .collect(Collectors.toList());
+    public List<com.fpt.swp.dto.ResearcherLeaderboardDto> getTopResearchersLeaderboard(int limit) {
+        return paperRepository.findTopResearchersByApprovedPapersCount(org.springframework.data.domain.PageRequest.of(0, limit));
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.fpt.swp.dto.ResearcherLeaderboardDto> getLeaderboard(int limit) {
+        return getTopResearchersLeaderboard(limit);
     }
 
     private PaperDto mapLocalPaperToDto(ResearchPaper paper) {

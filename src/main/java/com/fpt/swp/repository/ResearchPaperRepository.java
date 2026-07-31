@@ -99,4 +99,11 @@ public interface ResearchPaperRepository extends JpaRepository<ResearchPaper, Lo
 
     @Query("SELECT p FROM ResearchPaper p WHERE p.status != com.fpt.swp.model.PaperStatus.PENDING ORDER BY p.updatedAt DESC")
     Page<ResearchPaper> findModerationHistory(Pageable pageable);
+
+    @Query("SELECT new com.fpt.swp.dto.ResearcherLeaderboardDto(p.uploadedBy.fullName, p.uploadedBy.mail, COUNT(p)) " +
+           "FROM ResearchPaper p " +
+           "WHERE p.status = com.fpt.swp.model.PaperStatus.APPROVED AND p.uploadedBy IS NOT NULL " +
+           "GROUP BY p.uploadedBy.id, p.uploadedBy.fullName, p.uploadedBy.mail " +
+           "ORDER BY COUNT(p) DESC")
+    List<com.fpt.swp.dto.ResearcherLeaderboardDto> findTopResearchersByApprovedPapersCount(Pageable pageable);
 }

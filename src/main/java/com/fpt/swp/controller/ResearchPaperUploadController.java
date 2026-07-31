@@ -91,6 +91,12 @@ public class ResearchPaperUploadController {
         return ResponseEntity.ok(papers);
     }
 
+    @GetMapping("/api/papers/leaderboard")
+    public ResponseEntity<java.util.List<com.fpt.swp.dto.ResearcherLeaderboardDto>> getLeaderboard(
+            @RequestParam(defaultValue = "5") int limit) {
+        return ResponseEntity.ok(uploadService.getTopResearchersLeaderboard(limit));
+    }
+
     @PostMapping("/api/admin/papers/{id}/revoke")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PaperDto> revokePaper(
@@ -103,12 +109,7 @@ public class ResearchPaperUploadController {
         return ResponseEntity.ok(revoked);
     }
 
-    @GetMapping("/api/papers/leaderboard")
-    public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getLeaderboard(
-            @RequestParam(defaultValue = "5") int limit) {
-        java.util.List<java.util.Map<String, Object>> leaderboard = uploadService.getLeaderboard(limit);
-        return ResponseEntity.ok(leaderboard);
-    }
+
 
     @PostMapping("/api/admin/papers/{id}/approve")
     @PreAuthorize("hasRole('ADMIN')")
