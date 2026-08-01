@@ -166,9 +166,15 @@ public class ResearchPaperUploadService {
                                ? request.getComments()
                                : "No feedback provided.");
                 }
+                // Approve -> APPROVAL (badge xanh); Reject -> ALERT (badge đỏ).
+                // Trước đây cả hai đều dùng APPROVAL nên bài bị từ chối vẫn hiện badge
+                // xanh "APPROVAL" gây hiểu nhầm là đã duyệt.
+                NotificationType resultType = (newStatus == PaperStatus.APPROVED)
+                        ? NotificationType.APPROVAL
+                        : NotificationType.ALERT;
                 notificationService.createNotification(
                         paper.getUploadedBy().getId(),
-                        NotificationType.APPROVAL,
+                        resultType,
                         researcherTitle,
                         researcherMessage);
             } catch (Exception e) {
