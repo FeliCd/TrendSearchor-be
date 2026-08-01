@@ -21,13 +21,18 @@ public class SemanticScholarService {
     private final ApiRetryHandler retryHandler;
     private final ApiCacheService cacheService;
     private final RestTemplate semanticScholarRestTemplate;
+    /** Chỉ lấy bài thuộc các fieldsOfStudy này (giới hạn Công nghệ). Rỗng = không lọc. */
+    private final String fieldsOfStudy;
 
     public SemanticScholarService(ApiRetryHandler retryHandler,
                                   ApiCacheService cacheService,
-                                  @Qualifier("semanticScholarRestTemplate") RestTemplate semanticScholarRestTemplate) {
+                                  @Qualifier("semanticScholarRestTemplate") RestTemplate semanticScholarRestTemplate,
+                                  @org.springframework.beans.factory.annotation.Value(
+                                      "${app.search.semantic-scholar-fields:Computer Science,Mathematics,Engineering}") String fieldsOfStudy) {
         this.retryHandler = retryHandler;
         this.cacheService = cacheService;
         this.semanticScholarRestTemplate = semanticScholarRestTemplate;
+        this.fieldsOfStudy = fieldsOfStudy;
     }
 
     public Map<String, Object> searchPapersRaw(String query, int offset, int limit) {
@@ -75,6 +80,12 @@ public class SemanticScholarService {
 
         if (year != null && year > 0) {
             urlBuilder.append("&year=").append(year);
+        }
+
+        // Giới hạn lĩnh vực Công nghệ
+        if (fieldsOfStudy != null && !fieldsOfStudy.isBlank()) {
+            urlBuilder.append("&fieldsOfStudy=")
+                    .append(URLEncoder.encode(fieldsOfStudy, StandardCharsets.UTF_8));
         }
 
         String url = urlBuilder.toString();

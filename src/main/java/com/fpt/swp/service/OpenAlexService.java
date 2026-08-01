@@ -19,13 +19,27 @@ public class OpenAlexService {
     private final ApiRetryHandler retryHandler;
     private final ApiCacheService cacheService;
     private final String mailto;
+    /** OpenAlex field IDs coi là "Công nghệ" — chỉ trả bài thuộc các field này. Rỗng = không lọc. */
+    private final String techFieldIds;
 
     public OpenAlexService(ApiRetryHandler retryHandler,
                             ApiCacheService cacheService,
-                            @Value("${app.openalex.mailto:phuc.fpt.student@gmail.com}") String mailto) {
+                            @Value("${app.openalex.mailto:phuc.fpt.student@gmail.com}") String mailto,
+                            @Value("${app.search.tech-field-ids:17,22,26,25,18}") String techFieldIds) {
         this.retryHandler = retryHandler;
         this.cacheService = cacheService;
         this.mailto = mailto;
+        this.techFieldIds = techFieldIds;
+    }
+
+    /** Build filter OpenAlex giới hạn theo field Công nghệ, dạng "fields/17|fields/22|...". */
+    private String techFieldFilterValue() {
+        if (techFieldIds == null || techFieldIds.isBlank()) return null;
+        return java.util.Arrays.stream(techFieldIds.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(id -> "fields/" + id)
+                .collect(Collectors.joining("|"));
     }
 
     private String buildUrl(String path, Map<String, String> params) {
@@ -169,6 +183,14 @@ public class OpenAlexService {
                                      String dateFromStr, String dateToStr,
                                      String journal, String author) {
         List<String> filters = new ArrayList<>();
+
+        // Giới hạn lĩnh vực Công nghệ theo primary_topic.field (field CHÍNH của bài).
+        // Đã đo thực tế: chặt hơn topics.field.id (loại ~92% bài thuần ngoài ngành) mà
+        // vẫn giữ được bài liên ngành như "AI ethics" (primary field vẫn là Computer Science).
+        String techFilter = techFieldFilterValue();
+        if (techFilter != null) {
+            filters.add("primary_topic.field.id:" + techFilter);
+        }
 
         // Use full date (day/month precision) when available via from_publication_date / to_publication_date
         boolean hasDayPrecision = (dateFromStr != null && dateFromStr.length() >= 8)

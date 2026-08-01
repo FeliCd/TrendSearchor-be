@@ -29,6 +29,10 @@ public class SearchService {
     private final UserRepository userRepository;
     private final ResearchTopicRepository topicRepository;
 
+    /** Bật/tắt fallback Crossref. Mặc định tắt vì Crossref không lọc được theo lĩnh vực Công nghệ. */
+    @org.springframework.beans.factory.annotation.Value("${app.search.crossref-fallback:false}")
+    private boolean crossrefFallbackEnabled;
+
     public SearchService(OpenAlexService openAlexService,
                          SemanticScholarService semanticScholarService,
                          DataSyncService dataSyncService,
@@ -147,7 +151,8 @@ public class SearchService {
             }
         }
 
-        if (rawPapers.isEmpty() && request.getQuery() != null && !request.getQuery().isBlank()) {
+        // Crossref tắt mặc định: API Crossref không lọc được theo lĩnh vực nên không đảm bảo tech-only.
+        if (crossrefFallbackEnabled && rawPapers.isEmpty() && request.getQuery() != null && !request.getQuery().isBlank()) {
             log.info("SemanticScholar returned 0 papers or rate limited. Falling back to Crossref for query: {}", request.getQuery());
             try {
                 rawResult = searchCrossrefFallback(
