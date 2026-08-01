@@ -1,20 +1,22 @@
 package com.fpt.swp.controller;
 
 import com.fpt.swp.dto.ModerationStatsDto;
-import com.fpt.swp.model.PaperStatus;
-import com.fpt.swp.model.ResearchPaper;
 import com.fpt.swp.service.ModerationService;
 import com.fpt.swp.util.AuthUtils;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
+/**
+ * Endpoint moderation còn lại: thống kê + xử lý báo cáo bản quyền.
+ *
+ * <p>Phần duyệt/từ chối bài đã hợp nhất về {@code ResearchPaperUploadController}
+ * ({@code /api/admin/papers/{id}/approve}) — luồng FE thực sự dùng. Các endpoint
+ * duyệt/từ chối/list bài trùng lặp ở đây đã được gỡ bỏ.
+ */
 @RestController
 @RequestMapping("/api/moderation")
 @PreAuthorize("hasAnyRole('MODERATOR', 'ADMIN')")
@@ -24,69 +26,6 @@ public class ModerationController {
     private final ModerationService moderationService;
     private final com.fpt.swp.service.CopyrightReportService copyrightReportService;
     private final AuthUtils authUtils;
-
-    /**
-     * List papers by upload status for moderation.
-     * GET /api/moderation/papers?status=PENDING&page=0&size=10
-     */
-    @GetMapping("/papers")
-    public ResponseEntity<Page<ResearchPaper>> getPapers(
-            @RequestParam(defaultValue = "PENDING") String status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
-        PaperStatus paperStatus = PaperStatus.valueOf(status.toUpperCase());
-        return ResponseEntity.ok(moderationService.getPapersByStatus(paperStatus, page, size));
-    }
-
-    /**
-     * Get a specific paper for detailed review.
-     * GET /api/moderation/papers/{id}
-     */
-    @GetMapping("/papers/{id}")
-    public ResponseEntity<ResearchPaper> getPaper(@PathVariable Long id) {
-        return ResponseEntity.ok(moderationService.getPaperForReview(id));
-    }
-
-    /**
-     * Approve a pending paper.
-     * PATCH /api/moderation/papers/{id}/approve
-     */
-    @PatchMapping("/papers/{id}/approve")
-    public ResponseEntity<?> approvePaper(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
-        Long moderatorId = authUtils.extractUserId(userDetails);
-        ResearchPaper paper = moderationService.approvePaper(id, moderatorId);
-        return ResponseEntity.ok(Map.of(
-                "message", "Paper approved successfully",
-                "paperId", paper.getId(),
-                "status", paper.getStatus().name()
-        ));
-    }
-
-    /**
-     * Reject a pending paper with a reason.
-     * PATCH /api/moderation/papers/{id}/reject
-     * Body: { "reason": "..." }
-     */
-    @PatchMapping("/papers/{id}/reject")
-    public ResponseEntity<?> rejectPaper(
-            @PathVariable Long id,
-            @RequestBody Map<String, String> body,
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
-        Long moderatorId = authUtils.extractUserId(userDetails);
-        String reason = body.getOrDefault("reason", "No reason provided");
-        ResearchPaper paper = moderationService.rejectPaper(id, reason, moderatorId);
-        return ResponseEntity.ok(Map.of(
-                "message", "Paper rejected",
-                "paperId", paper.getId(),
-                "status", paper.getStatus().name(),
-                "reason", reason
-        ));
-    }
 
     /**
      * Get moderation dashboard stats.
