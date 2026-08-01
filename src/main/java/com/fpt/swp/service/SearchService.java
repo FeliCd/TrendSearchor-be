@@ -145,7 +145,9 @@ public class SearchService {
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> rawPapers = findPapersList(rawResult);
-        long total = findTotal(rawResult) + localApprovedPapers.size();
+        // Chỉ lấy total của nguồn ngoài ở đây; số bài local được cộng 1 lần ở adjustedTotal
+        // bên dưới (trước đây cộng cả 2 chỗ nên total bị đếm trùng số bài local).
+        long total = findTotal(rawResult);
 
         if (rawPapers.isEmpty() && externalQuery != null && !externalQuery.isBlank()) {
             log.info("OpenAlex returned 0 papers or rate limited. Falling back to SemanticScholar for query: {}", externalQuery);
