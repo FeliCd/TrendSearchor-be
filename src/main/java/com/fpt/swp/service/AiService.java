@@ -43,6 +43,25 @@ public class AiService {
     private final SearchService searchService;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Prompt tách tham số tìm kiếm. Dùng chung cho {@link #naturalLanguageSearch} và
+     * {@link #parseSearchQuery}. YÊU CẦU quan trọng: trường {@code query} phải là TỪ KHOÁ
+     * TIẾNG ANH ngắn gọn (dịch mọi input không phải tiếng Anh) vì index OpenAlex là tiếng Anh.
+     */
+    private static final String SEARCH_PARAM_EXTRACT_PROMPT =
+            "You are a search parameter extractor for an academic paper search engine whose index "
+            + "(OpenAlex) is English-language. Extract search parameters from the user's natural language query. "
+            + "CRITICAL: the `query` field must be CONCISE ENGLISH ACADEMIC KEYWORDS describing the topic — "
+            + "translate any non-English input to English, keep only the core topic terms, and drop filler words "
+            + "(e.g. 'tìm', 'các nghiên cứu về', 'của', 'the', 'papers about'). "
+            + "Examples: 'đạo đức của AI' -> 'AI ethics'; "
+            + "'các nghiên cứu liên quan đến học sâu cho ảnh y tế' -> 'deep learning medical imaging'; "
+            + "'bài báo của Vaswani về attention 2017' -> query 'attention transformer', author 'Vaswani', year 2017. "
+            + "Respond in JSON format: "
+            + "{\"query\": \"<concise English keywords>\", \"author\": \"<author name or null>\", "
+            + "\"journal\": \"<journal name or null>\", \"year\": <year integer or null>}. "
+            + "If a parameter is not mentioned, use null. The query field must not be null.";
+
     // =========================================================================
     // FR-10.6: Abstract Assistant
     // =========================================================================
@@ -242,22 +261,8 @@ public class AiService {
      * @return kết quả tìm kiếm giống như search thông thường
      */
     public PaperSearchResponse naturalLanguageSearch(NlSearchRequest nlRequest, Long userId) {
-        String systemPrompt =
-            "You are a search parameter extractor for an academic paper search engine whose index "
-            + "(OpenAlex) is English-language. Extract search parameters from the user's natural language query. "
-            + "CRITICAL: the `query` field must be CONCISE ENGLISH ACADEMIC KEYWORDS describing the topic — "
-            + "translate any non-English input to English, keep only the core topic terms, and drop filler words "
-            + "(e.g. 'tìm', 'các nghiên cứu về', 'của', 'the', 'papers about'). "
-            + "Examples: 'đạo đức của AI' -> 'AI ethics'; "
-            + "'các nghiên cứu liên quan đến học sâu cho ảnh y tế' -> 'deep learning medical imaging'; "
-            + "'bài báo của Vaswani về attention 2017' -> query 'attention transformer', author 'Vaswani', year 2017. "
-            + "Respond in JSON format: "
-            + "{\"query\": \"<concise English keywords>\", \"author\": \"<author name or null>\", "
-            + "\"journal\": \"<journal name or null>\", \"year\": <year integer or null>}. "
-            + "If a parameter is not mentioned, use null. The query field must not be null.";
-
         NlSearchParamsPayload params = openRouterClient.chatJson(
-                systemPrompt, nlRequest.getQuery(), NlSearchParamsPayload.class);
+                SEARCH_PARAM_EXTRACT_PROMPT, nlRequest.getQuery(), NlSearchParamsPayload.class);
 
         PaperSearchRequest searchRequest;
         if (params == null || params.getQuery() == null) {

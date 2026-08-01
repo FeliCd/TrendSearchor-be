@@ -28,10 +28,16 @@ public class SearchService {
     private final RecentSearchRepository searchRepository;
     private final UserRepository userRepository;
     private final ResearchTopicRepository topicRepository;
+    private final OpenRouterClient openRouterClient;
 
     /** Bật/tắt fallback Crossref. Mặc định tắt vì Crossref không lọc được theo lĩnh vực Công nghệ. */
     @org.springframework.beans.factory.annotation.Value("${app.search.crossref-fallback:false}")
     private boolean crossrefFallbackEnabled;
+
+    /** Bật/tắt dịch tự động query non-English (VD tiếng Việt) sang tiếng Anh trước khi
+     *  gọi các nguồn ngoài (OpenAlex/SemanticScholar vốn là index tiếng Anh). */
+    @org.springframework.beans.factory.annotation.Value("${app.search.auto-translate-query:true}")
+    private boolean autoTranslateQuery;
 
     public SearchService(OpenAlexService openAlexService,
                          SemanticScholarService semanticScholarService,
@@ -44,7 +50,8 @@ public class SearchService {
                          UserFollowRepository followRepository,
                          RecentSearchRepository searchRepository,
                          UserRepository userRepository,
-                         ResearchTopicRepository topicRepository) {
+                         ResearchTopicRepository topicRepository,
+                         OpenRouterClient openRouterClient) {
         this.openAlexService = openAlexService;
         this.semanticScholarService = semanticScholarService;
         this.dataSyncService = dataSyncService;
@@ -57,6 +64,7 @@ public class SearchService {
         this.searchRepository = searchRepository;
         this.userRepository = userRepository;
         this.topicRepository = topicRepository;
+        this.openRouterClient = openRouterClient;
     }
 
     @Transactional
@@ -116,8 +124,13 @@ public class SearchService {
             }
         }
 
+        // Index của OpenAlex/SemanticScholar là tiếng Anh; nếu người dùng nhập tiếng Việt
+        // (hoặc ngôn ngữ khác) thì dịch sang từ khoá tiếng Anh trước khi tìm nguồn ngoài.
+        // Local DB (ở trên) vẫn dùng query gốc để bài upload tiêu đề tiếng Việt vẫn khớp.
+        String externalQuery = translateQueryToEnglishIfNeeded(request.getQuery());
+
         Map<String, Object> rawResult = openAlexService.searchPapersRaw(
-                request.getQuery(),
+                externalQuery,
                 request.getPage() * request.getSize(),
                 request.getSize(),
                 request.getYear(),
@@ -134,11 +147,11 @@ public class SearchService {
         List<Map<String, Object>> rawPapers = findPapersList(rawResult);
         long total = findTotal(rawResult) + localApprovedPapers.size();
 
-        if (rawPapers.isEmpty() && request.getQuery() != null && !request.getQuery().isBlank()) {
-            log.info("OpenAlex returned 0 papers or rate limited. Falling back to SemanticScholar for query: {}", request.getQuery());
+        if (rawPapers.isEmpty() && externalQuery != null && !externalQuery.isBlank()) {
+            log.info("OpenAlex returned 0 papers or rate limited. Falling back to SemanticScholar for query: {}", externalQuery);
             try {
                 rawResult = semanticScholarService.searchPapersRaw(
-                        request.getQuery(),
+                        externalQuery,
                         request.getPage() * request.getSize(),
                         request.getSize(),
                         request.getSortBy(),
@@ -152,11 +165,11 @@ public class SearchService {
         }
 
         // Crossref tắt mặc định: API Crossref không lọc được theo lĩnh vực nên không đảm bảo tech-only.
-        if (crossrefFallbackEnabled && rawPapers.isEmpty() && request.getQuery() != null && !request.getQuery().isBlank()) {
-            log.info("SemanticScholar returned 0 papers or rate limited. Falling back to Crossref for query: {}", request.getQuery());
+        if (crossrefFallbackEnabled && rawPapers.isEmpty() && externalQuery != null && !externalQuery.isBlank()) {
+            log.info("SemanticScholar returned 0 papers or rate limited. Falling back to Crossref for query: {}", externalQuery);
             try {
                 rawResult = searchCrossrefFallback(
-                        request.getQuery(),
+                        externalQuery,
                         request.getPage() * request.getSize(),
                         request.getSize()
                 );
@@ -199,6 +212,57 @@ public class SearchService {
                 .size(request.getSize())
                 .totalPages((int) Math.ceil((double) adjustedTotal / request.getSize()))
                 .build();
+    }
+
+    // ─── Dịch query non-English sang tiếng Anh cho các nguồn ngoài ─────────────────
+
+    private static final String QUERY_TRANSLATE_PROMPT =
+            "You are a translation assistant for an English-language academic paper search engine "
+            + "(OpenAlex). Convert the user's search text into CONCISE ENGLISH ACADEMIC KEYWORDS describing "
+            + "the topic: translate any non-English input to English, keep only the core topic terms, drop "
+            + "filler words (e.g. 'tìm', 'các bài báo về', 'liên quan tới', 'nghiên cứu về', 'the', 'papers about'), "
+            + "and keep proper nouns/author names unchanged. "
+            + "Examples: 'các bài báo có liên quan tới AI' -> 'artificial intelligence'; "
+            + "'trí tuệ nhân tạo trong y học' -> 'artificial intelligence in medicine'; "
+            + "'đạo đức của AI' -> 'AI ethics'. "
+            + "Respond ONLY in JSON: {\"query\": \"<concise English keywords>\"}. The query field must not be null.";
+
+    /**
+     * Dịch query sang từ khoá tiếng Anh nếu cần (chứa ký tự non-ASCII, VD tiếng Việt).
+     * Query đã là tiếng Anh (ASCII thuần) được trả nguyên vẹn — tránh gọi LLM thừa và
+     * tránh dịch lại lần 2 khi {@link AiService#naturalLanguageSearch} đã dịch trước đó.
+     * Nếu dịch thất bại thì trả về query gốc (an toàn, không chặn tìm kiếm).
+     */
+    private String translateQueryToEnglishIfNeeded(String query) {
+        if (!autoTranslateQuery || query == null || query.isBlank() || isLikelyEnglish(query)) {
+            return query;
+        }
+        try {
+            TranslatedQuery t = openRouterClient.chatJson(QUERY_TRANSLATE_PROMPT, query, TranslatedQuery.class);
+            if (t != null && t.getQuery() != null && !t.getQuery().isBlank()) {
+                log.info("Auto-translated search query '{}' -> '{}'", query, t.getQuery().trim());
+                return t.getQuery().trim();
+            }
+            log.warn("Query translation returned empty for '{}'. Using original.", query);
+        } catch (Exception e) {
+            log.warn("Query translation failed for '{}': {}. Using original.", query, e.getMessage());
+        }
+        return query;
+    }
+
+    /** True nếu chuỗi chỉ gồm ký tự ASCII (coi như đã là tiếng Anh, không cần dịch). */
+    private static boolean isLikelyEnglish(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            if (s.charAt(i) > 127) return false;
+        }
+        return true;
+    }
+
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    private static class TranslatedQuery {
+        private String query;
     }
 
     @SuppressWarnings("unchecked")
