@@ -260,29 +260,131 @@ public class ResearchPaperUploadService {
         ResearchPaper paper = paperRepository.findById(paperId)
                 .orElseThrow(() -> new EntityNotFoundException("Research paper not found"));
 
-        if (paper.getStatus() != PaperStatus.APPROVED) {
-            throw new IllegalStateException(
-                    "Only an approved paper can be revoked. Current status: " + paper.getStatus());
+        if (paper.getStatus() == PaperStatus.PENDING) {
+            throw new IllegalStateException("Paper is already in PENDING status.");
         }
 
-        // Thu hồi: gỡ khỏi công khai. Giữ approvedBy làm lịch sử. Muốn đăng lại thì
-        // admin gọi /api/admin/papers/{id}/approve với status=APPROVED.
-        paper.setStatus(PaperStatus.REVOKED);
+        if (paper.getStatus() == PaperStatus.APPROVED) {
+            paper.setStatus(PaperStatus.REVOKED);
+        } else {
+            paper.setStatus(PaperStatus.PENDING);
+            paper.setRejectionReason(null);
+        }
 
         ResearchPaper savedPaper = paperRepository.save(paper);
 
-        // Notify researcher that the paper has been revoked
+        // Notify researcher that the paper decision was revoked
         if (paper.getUploadedBy() != null) {
             try {
+                boolean isRevoked = savedPaper.getStatus() == PaperStatus.REVOKED;
                 notificationService.createNotification(
                         paper.getUploadedBy().getId(),
-                        NotificationType.PAPER_REVOKED,
-                        "Your paper has been revoked",
-                        "Your paper \"" + paper.getTitle() + "\" has been revoked by the admin and is no longer publicly visible."
+                        isRevoked ? NotificationType.PAPER_REVOKED : NotificationType.SYSTEM,
+                        isRevoked ? "Your paper has been revoked" : "Paper moderation decision reverted",
+                        isRevoked
+                                ? "Your paper \"" + paper.getTitle() + "\" has been revoked by the admin and is no longer publicly visible."
+                                : "The rejection on your paper \"" + paper.getTitle() + "\" was revoked by the admin and returned to pending review."
                 );
             } catch (Exception e) {
                 log.error("Failed to send revocation notification to researcher: {}", e.getMessage());
             }
+        }
+
+        return mapLocalPaperToDto(savedPaper);
+    }
+
+    @Transactional
+    public PaperDto resubmitPaper(Long paperId, UploadPaperRequest request, User researcher) {
+        log.info("User {} resubmitting paper {}", researcher.getMail(), paperId);
+
+        ResearchPaper paper = paperRepository.findById(paperId)
+                .orElseThrow(() -> new EntityNotFoundException("Research paper not found"));
+
+        if (paper.getUploadedBy() == null || !paper.getUploadedBy().getId().equals(researcher.getId())) {
+            throw new IllegalArgumentException("You can only resubmit your own research papers.");
+        }
+
+        if (paper.getStatus() != PaperStatus.REJECTED) {
+            throw new IllegalStateException("Only REJECTED papers can be edited and resubmitted. Current status: " + paper.getStatus());
+        }
+
+        if (!aiService.isTechPaper(request.getTitle(), request.getAbstractText())) {
+            throw new IllegalArgumentException(
+                    "This paper does not appear to be within the platform's Technology scope "
+                            + "(Computer Science, AI, Data Science, Engineering, etc.), so it cannot be uploaded.");
+        }
+
+        paper.setTitle(request.getTitle());
+        paper.setAbstractText(request.getAbstractText());
+        paper.setYear(request.getYear());
+        paper.setPaperUri(request.getPaperUri());
+        paper.setLicense(request.getLicense());
+        paper.setPublicationType(request.getPublicationType());
+        paper.setIsSelfPublished(request.getPublicationType() == PublicationType.ORIGINAL_THESIS);
+        paper.setStatus(PaperStatus.PENDING);
+        paper.setRejectionReason(null);
+        paper.setStatusComments(null);
+
+        if (request.getAuthors() != null) {
+            paper.getAuthors().clear();
+            for (String authorName : request.getAuthors()) {
+                if (authorName == null || authorName.isBlank()) continue;
+                Author author = authorRepository.findByNameIgnoreCase(authorName.trim())
+                        .orElseGet(() -> {
+                            Author a = new Author();
+                            a.setName(authorName.trim());
+                            a.setExternalId("uploaded_author_" + UUID.randomUUID());
+                            return authorRepository.save(a);
+                        });
+                paper.getAuthors().add(author);
+            }
+        }
+
+        if (request.getJournals() != null) {
+            paper.getJournals().clear();
+            for (String journalName : request.getJournals()) {
+                if (journalName == null || journalName.isBlank()) continue;
+                Journal journal = journalRepository.findByNameIgnoreCase(journalName.trim())
+                        .orElseGet(() -> {
+                            Journal j = new Journal();
+                            j.setName(journalName.trim());
+                            j.setExternalId("uploaded_journal_" + UUID.randomUUID());
+                            return journalRepository.save(j);
+                        });
+                paper.getJournals().add(journal);
+            }
+        }
+
+        if (request.getKeywords() != null) {
+            paper.getKeywords().clear();
+            for (String kwName : request.getKeywords()) {
+                if (kwName == null || kwName.isBlank()) continue;
+                String normalizedKw = kwName.trim().toLowerCase();
+                Keyword keyword = keywordRepository.findByName(normalizedKw)
+                        .orElseGet(() -> {
+                            Keyword k = new Keyword();
+                            k.setName(normalizedKw);
+                            k.setDisplayName(kwName.trim());
+                            return keywordRepository.save(k);
+                        });
+                paper.getKeywords().add(keyword);
+            }
+        }
+
+        ResearchPaper savedPaper = paperRepository.save(paper);
+
+        try {
+            List<User> admins = userRepository.findByRole(Role.ADMIN);
+            for (User admin : admins) {
+                notificationService.createNotification(
+                        admin.getId(),
+                        NotificationType.SYSTEM,
+                        "Resubmitted Research Paper",
+                        "Researcher " + researcher.getFullName() + " (" + researcher.getMail()
+                                + ") has edited and resubmitted paper: \"" + paper.getTitle() + "\" for moderation.");
+            }
+        } catch (Exception e) {
+            log.error("Failed to send resubmission notification to admins: {}", e.getMessage());
         }
 
         return mapLocalPaperToDto(savedPaper);
