@@ -168,7 +168,7 @@ public class ResearchPaperUploadService {
                 }
                 notificationService.createNotification(
                         paper.getUploadedBy().getId(),
-                        NotificationType.APPROVAL,
+                        newStatus == PaperStatus.APPROVED ? NotificationType.PAPER_APPROVED : NotificationType.PAPER_REJECTED,
                         researcherTitle,
                         researcherMessage);
             } catch (Exception e) {
@@ -266,7 +266,7 @@ public class ResearchPaperUploadService {
             try {
                 notificationService.createNotification(
                         paper.getUploadedBy().getId(),
-                        NotificationType.APPROVAL,
+                        NotificationType.PAPER_REVOKED,
                         "Your paper has been revoked",
                         "Your paper \"" + paper.getTitle() + "\" has been revoked by the admin and is no longer publicly visible."
                 );
