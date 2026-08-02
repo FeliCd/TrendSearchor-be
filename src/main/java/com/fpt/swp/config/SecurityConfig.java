@@ -85,6 +85,10 @@ public class SecurityConfig {
                     // AI endpoints: ALL require login — quota is enforced per user (FREE 3/24h,
                     // PRO 50/24h). No anonymous access so usage can't be spoofed via IP.
                     auth.requestMatchers("/api/ai/**").authenticated();
+                    // VNPay callbacks are called by VNPay/the browser WITHOUT a JWT — must be public.
+                    // Security here comes from HMAC-SHA512 signature verification, not from auth.
+                    auth.requestMatchers(HttpMethod.GET,
+                            "/api/payments/vnpay/return", "/api/payments/vnpay/ipn").permitAll();
                     auth.anyRequest().authenticated();
                 });
 
