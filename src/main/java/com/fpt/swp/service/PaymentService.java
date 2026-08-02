@@ -38,7 +38,7 @@ public class PaymentService {
     private final UserSubscriptionRepository subscriptionRepository;
     private final VNPayService vnPayService;
 
-    @Value("${app.vnpay.fe-return-url:http://localhost:3000/subscription}")
+    @Value("${app.vnpay.fe-return-url:http://localhost:3000/researcher/subscription}")
     private String feReturnUrl;
 
     // ─── Kích hoạt gói (dùng chung) ─────────────────────────────────────────────
