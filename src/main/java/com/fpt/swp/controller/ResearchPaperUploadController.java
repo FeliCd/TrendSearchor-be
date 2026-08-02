@@ -123,4 +123,17 @@ public class ResearchPaperUploadController {
         PaperDto approved = uploadService.approveOrRejectPaper(id, request, admin);
         return ResponseEntity.ok(approved);
     }
+
+    @PutMapping("/api/papers/{id}/resubmit")
+    @PreAuthorize("hasAnyRole('RESEARCHER', 'ADMIN')")
+    public ResponseEntity<PaperDto> resubmitPaper(
+            @PathVariable Long id,
+            @Valid @RequestBody UploadPaperRequest request) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByMail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+
+        PaperDto resubmitted = uploadService.resubmitPaper(id, request, user);
+        return ResponseEntity.ok(resubmitted);
+    }
 }
