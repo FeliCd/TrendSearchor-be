@@ -33,6 +33,7 @@ public class ResearchPaperUploadService {
     private final UserRepository userRepository;
     private final UserFollowRepository userFollowRepository;
     private final NotificationService notificationService;
+    private final AiService aiService;
 
     /**
      * Phiên bản Terms of Service hiện hành — được đóng dấu vào từng bản ghi upload
@@ -44,6 +45,15 @@ public class ResearchPaperUploadService {
     @Transactional
     public PaperDto uploadPaper(UploadPaperRequest request, User user, String clientIp) {
         log.info("User {} uploading research paper: {}", user.getMail(), request.getTitle());
+
+        // Nền tảng chỉ nhận bài thuộc lĩnh vực Công nghệ. Phân loại bằng AI (fail-open:
+        // nếu AI lỗi/offline thì vẫn cho đăng để tránh chặn oan — xem AiService.isTechPaper).
+        if (!aiService.isTechPaper(request.getTitle(), request.getAbstractText())) {
+            throw new IllegalArgumentException(
+                    "This paper does not appear to be within the platform's Technology scope "
+                    + "(Computer Science, AI, Data Science, Engineering, etc.), so it cannot be uploaded. "
+                    + "TrendSearchor only accepts technology-related research.");
+        }
 
         ResearchPaper paper = new ResearchPaper();
         paper.setTitle(request.getTitle());
