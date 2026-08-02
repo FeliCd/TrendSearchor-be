@@ -462,12 +462,21 @@ public class OpenAlexService {
                     .queryParam("per-page", "200")
                     .queryParam("group_by", "publication_year");
 
+            // Giới hạn lĩnh vực Công nghệ y hệt search, để thống kê trend không lẫn bài non-tech.
+            List<String> groupFilters = new ArrayList<>();
+            String techFilter = techFieldFilterValue();
+            if (techFilter != null) {
+                groupFilters.add("primary_topic.field.id:" + techFilter);
+            }
             if (startYear != null && startYear > 0 && endYear != null && endYear > 0) {
-                builder.queryParam("filter", "publication_year:" + startYear + "-" + endYear);
+                groupFilters.add("publication_year:" + startYear + "-" + endYear);
             } else if (startYear != null && startYear > 0) {
-                builder.queryParam("filter", "publication_year:>" + (startYear - 1));
+                groupFilters.add("publication_year:>" + (startYear - 1));
             } else if (endYear != null && endYear > 0) {
-                builder.queryParam("filter", "publication_year:<" + (endYear + 1));
+                groupFilters.add("publication_year:<" + (endYear + 1));
+            }
+            if (!groupFilters.isEmpty()) {
+                builder.queryParam("filter", String.join(",", groupFilters));
             }
 
             String url = builder.build().encode().toUriString();

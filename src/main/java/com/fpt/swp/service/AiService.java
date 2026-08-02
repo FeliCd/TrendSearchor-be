@@ -43,6 +43,25 @@ public class AiService {
     private final SearchService searchService;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Prompt tách tham số tìm kiếm. Dùng chung cho {@link #naturalLanguageSearch} và
+     * {@link #parseSearchQuery}. YÊU CẦU quan trọng: trường {@code query} phải là TỪ KHOÁ
+     * TIẾNG ANH ngắn gọn (dịch mọi input không phải tiếng Anh) vì index OpenAlex là tiếng Anh.
+     */
+    private static final String SEARCH_PARAM_EXTRACT_PROMPT =
+            "You are a search parameter extractor for an academic paper search engine whose index "
+            + "(OpenAlex) is English-language. Extract search parameters from the user's natural language query. "
+            + "CRITICAL: the `query` field must be CONCISE ENGLISH ACADEMIC KEYWORDS describing the topic — "
+            + "translate any non-English input to English, keep only the core topic terms, and drop filler words "
+            + "(e.g. 'tìm', 'các nghiên cứu về', 'của', 'the', 'papers about'). "
+            + "Examples: 'đạo đức của AI' -> 'AI ethics'; "
+            + "'các nghiên cứu liên quan đến học sâu cho ảnh y tế' -> 'deep learning medical imaging'; "
+            + "'bài báo của Vaswani về attention 2017' -> query 'attention transformer', author 'Vaswani', year 2017. "
+            + "Respond in JSON format: "
+            + "{\"query\": \"<concise English keywords>\", \"author\": \"<author name or null>\", "
+            + "\"journal\": \"<journal name or null>\", \"year\": <year integer or null>}. "
+            + "If a parameter is not mentioned, use null. The query field must not be null.";
+
     // =========================================================================
     // FR-10.6: Abstract Assistant
     // =========================================================================
@@ -155,8 +174,12 @@ public class AiService {
 
         // --- 4. Build context và gọi AI ---
         String systemPrompt =
-            "You are a research advisor helping a researcher discover new topics. "
+            "You are a research advisor for a TECHNOLOGY-only academic platform. "
             + "Based on the user's existing interests, suggest new keywords and research topics they haven't explored yet. "
+            + "IMPORTANT: suggest ONLY topics within technology fields — Computer Science, Artificial Intelligence, "
+            + "Machine Learning, Data Science, Software Engineering, Cybersecurity, Networking, Robotics, "
+            + "Mathematics/Statistics for computing, and Engineering. Do NOT suggest anything outside technology "
+            + "(e.g. medicine, psychology, biology, social sciences, humanities), even if the user's history hints at it. "
             + "Respond in JSON format: {\"suggestedKeywords\": [...], \"suggestedTopics\": [...], \"rationale\": \"...\"}";
 
         StringBuilder userPrompt = new StringBuilder();
@@ -174,7 +197,7 @@ public class AiService {
         boolean isNewUser = bookmarkedKeywords.isEmpty() && followedTopics.isEmpty() && bookmarkedPaperTitles.isEmpty();
         if (isNewUser) {
             userPrompt.append("- I currently have no bookmarked papers or followed topics.\n");
-            userPrompt.append("Suggest 5 trending research keywords and 3 high-impact emerging research topics in modern Computer Science, AI, and Science that I should start exploring.");
+            userPrompt.append("Suggest 5 trending research keywords and 3 high-impact emerging research topics in modern Computer Science, AI, and technology that I should start exploring.");
         } else {
             userPrompt.append("\nBased on my bookmarked papers and topics above, suggest 5 new keywords and 3 new research topics that are closely related to my existing research interests.");
         }
@@ -191,13 +214,13 @@ public class AiService {
                 keywords = List.of(
                         "Large Language Models",
                         "Retrieval-Augmented Generation",
-                        "Medical Image Segmentation",
+                        "Federated Learning",
                         "Quantum Machine Learning",
                         "Sustainable Computing"
                 );
                 topics = List.of(
                         "Artificial Intelligence & Applications",
-                        "Bioinformatics & Healthcare Tech",
+                        "Cybersecurity & Privacy",
                         "Green Computing & Energy Efficiency"
                 );
             } else {
@@ -242,22 +265,8 @@ public class AiService {
      * @return kết quả tìm kiếm giống như search thông thường
      */
     public PaperSearchResponse naturalLanguageSearch(NlSearchRequest nlRequest, Long userId) {
-        String systemPrompt =
-            "You are a search parameter extractor for an academic paper search engine whose index "
-            + "(OpenAlex) is English-language. Extract search parameters from the user's natural language query. "
-            + "CRITICAL: the `query` field must be CONCISE ENGLISH ACADEMIC KEYWORDS describing the topic — "
-            + "translate any non-English input to English, keep only the core topic terms, and drop filler words "
-            + "(e.g. 'tìm', 'các nghiên cứu về', 'của', 'the', 'papers about'). "
-            + "Examples: 'đạo đức của AI' -> 'AI ethics'; "
-            + "'các nghiên cứu liên quan đến học sâu cho ảnh y tế' -> 'deep learning medical imaging'; "
-            + "'bài báo của Vaswani về attention 2017' -> query 'attention transformer', author 'Vaswani', year 2017. "
-            + "Respond in JSON format: "
-            + "{\"query\": \"<concise English keywords>\", \"author\": \"<author name or null>\", "
-            + "\"journal\": \"<journal name or null>\", \"year\": <year integer or null>}. "
-            + "If a parameter is not mentioned, use null. The query field must not be null.";
-
         NlSearchParamsPayload params = openRouterClient.chatJson(
-                systemPrompt, nlRequest.getQuery(), NlSearchParamsPayload.class);
+                SEARCH_PARAM_EXTRACT_PROMPT, nlRequest.getQuery(), NlSearchParamsPayload.class);
 
         PaperSearchRequest searchRequest;
         if (params == null || params.getQuery() == null) {
@@ -276,6 +285,49 @@ public class AiService {
         }
 
         return searchService.searchPapers(searchRequest, userId);
+    }
+
+    // =========================================================================
+    // Phân loại lĩnh vực Công nghệ (dùng cho upload gate)
+    // =========================================================================
+
+    /**
+     * Phân loại 1 bài báo (title + abstract) có thuộc lĩnh vực Công nghệ hay không.
+     * FAIL-OPEN: nếu AI lỗi/offline/không chắc thì trả true (cho đăng) để tránh chặn oan
+     * khi LLM không sẵn sàng — chỉ trả false khi AI khẳng định rõ bài NGOÀI lĩnh vực tech.
+     *
+     * @return true nếu là bài công nghệ hoặc không xác định được; false nếu chắc chắn non-tech
+     */
+    public boolean isTechPaper(String title, String abstractText) {
+        String systemPrompt =
+            "You are a strict classifier deciding if an academic paper belongs to TECHNOLOGY fields: "
+            + "Computer Science, Artificial Intelligence, Machine Learning, Data Science, Software "
+            + "Engineering, Cybersecurity, Networking, Robotics, Electronics, Information Systems, "
+            + "Mathematics/Statistics for computing, and Engineering. Papers primarily about medicine, "
+            + "biology, psychology, social sciences, humanities, economics, law, or arts are NOT technology. "
+            + "If a paper applies technology to another domain but its CORE contribution is a "
+            + "computing/engineering method, treat it as technology. "
+            + "Respond ONLY in JSON: {\"isTech\": true or false, \"reason\": \"<short reason>\"}.";
+        String content = "Title: " + (title != null ? title : "")
+                + "\n\nAbstract: " + (abstractText != null && !abstractText.isBlank()
+                        ? abstractText : "(no abstract provided)");
+        try {
+            TechClassificationPayload result = openRouterClient.chatJson(
+                    systemPrompt, content, TechClassificationPayload.class);
+            if (result == null || result.getIsTech() == null) {
+                log.warn("Tech classification inconclusive for '{}'. Allowing upload (fail-open).", title);
+                return true;
+            }
+            if (!result.getIsTech()) {
+                log.info("Upload classified NON-TECH, will be rejected: '{}' (reason: {})",
+                        title, result.getReason());
+            }
+            return result.getIsTech();
+        } catch (Exception e) {
+            log.warn("Tech classification failed for '{}': {}. Allowing upload (fail-open).",
+                    title, e.getMessage());
+            return true;
+        }
     }
 
     // =========================================================================
@@ -535,6 +587,14 @@ public class AiService {
         private String author;
         private String journal;
         private Integer year;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private static class TechClassificationPayload {
+        private Boolean isTech;
+        private String reason;
     }
 
     @Data

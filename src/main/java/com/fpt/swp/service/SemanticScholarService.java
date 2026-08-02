@@ -45,10 +45,12 @@ public class SemanticScholarService {
         String sortStr = buildSortString(sortBy);
         int pageOffset = offset;
 
+        // sortStr có thể null (khi sort theo relevance) -> dùng "rel" cho cache key.
+        String sortKey = (sortStr != null ? sortStr.replace(":", "-") : "rel");
         String cacheKey = CACHE_PREFIX_SEARCH
                 + encodedQuery + ":"
                 + (year != null ? "y" + year : "all") + ":"
-                + sortStr.replace(":", "-") + ":"
+                + sortKey + ":"
                 + pageOffset + ":" + limit;
 
         Optional<String> cached = cacheService.get(cacheKey, String.class);
